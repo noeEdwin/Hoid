@@ -259,60 +259,118 @@ flowchart TD
 ### Workflow B.1: Roleplay Session (Fluency + Grammar)
 
 ```mermaid
-flowchart TD
-    UI[Frontend UI] -->|Start session| PC[Pipeline Controller]
-    PC -->|Pull top N difficult tokens| DB[(Local Database)]
-    PC -->|Generate scenario + constraints| LLM[DeepSeek-V3]
-    LLM -->|Initial greeting + TTS| TTS[Edge-TTS]
-    TTS -->|Audio + text| UI
-    UI -->|User speaks| VAD[Silero VAD - local]
-    VAD -->|Audio chunk| STT[Groq Whisper]
-    STT -->|Transcription| PC
-    PC -->|Validate grammar + generate reply| LLM
-    LLM -->|Reply + TTS| UI
+sequenceDiagram
+    autonumber
+    participant UI as Frontend UI
+    participant PC as Pipeline Controller
+    participant DB as Local DB
+    participant AI as AI Cloud API
+
+    Phase 1: Pre-Warming
+    UI->>PC: Tap Roleplay Menu
+    PC->>DB: Query Profile (Allowed words, targeted grammar tokens)
+    DB-->>PC: Return User Vocab Profile Matrix
+    PC->>AI: Pre-warm Open Handshake (Open WebSocket Stream)
+    AI-->>PC: Connection Ready
+    PC-->>UI: UI Mic Ready (Transition UI state)
+
+    Phase 2: The Conversational Turn
+    UI->>PC: Stream User Audio Chunk (Silero VAD captures speech end)
+    PC->>AI: Forward Live Audio Stream to STT
+    AI-->>PC: Return Transcribed Chinese Text String
+
+    Phase 3: Grammar Checks & Output Generation
+    Note over PC: Run Grammar Constraint Validation
+    PC->>AI: Send Text + Constraints (Evaluation status + Word ceiling rule)
+    AI-->>PC: Stream Response Text & Audio Buffer Bytes
+    PC-->>UI: Play Balanced Audio Stream Immediately
+
+    Phase 4: Async Save Loop
+    PC->>DB: Async Background Save (Write text turn log to Chat_Log & Turn_Evaluation)
 ```
 
-1. Client sends start request with scenario_id
-2. Pipeline Controller pulls top N high-difficulty flashcards from DB
-3. LLM generates scenario context with forced vocabulary constraints
-4. TTS generates initial greeting audio
-5. User speaks -> VAD detects end of speech locally
-6. Audio sent to Groq for STT transcription
-7. Transcription + constraints sent to DeepSeek for grammar validation + reply
-8. If grammar fails: in-character correction (FR-4.5)
-9. If repeated failures: difficulty downgraded in real-time (FR-5.3)
-10. User can request hint via WebSocket event (FR-4.6)
-11. On session end: batched analytics committed to DB
+**Phase 1: Pre-Warming**
+1. User taps roleplay menu
+2. Pipeline Controller queries user's vocabulary profile (allowed words, targeted grammar tokens) from DB
+3. Pipeline Controller opens WebSocket handshake with AI Cloud API
+4. Connection ready, UI transitions to mic-ready state
+
+**Phase 2: The Conversational Turn**
+5. User speaks, Silero VAD captures speech end locally
+6. Audio stream forwarded to Groq STT
+7. Transcribed Chinese text string returned
+
+**Phase 3: Grammar Checks & Output Generation**
+8. Pipeline Controller runs grammar constraint validation locally
+9. Text + constraints + word ceiling rule sent to DeepSeek
+10. Response text and audio buffer streamed back
+11. Audio played immediately (no wait for full response)
+
+**Phase 4: Async Save Loop**
+12. Background async save writes turn log to Chat_Log and Turn_Evaluation
+13. Repeat from Phase 2 for next conversational turn
+14. On session end: batched SRS analytics committed to DB
 
 ### Workflow B.2: Shadowing Drill (Phonetic Precision)
 
 ```mermaid
-flowchart TD
-    UI[Frontend UI] -->|Select drill| PC[Pipeline Controller]
-    PC -->|Query high-difficulty cards + media| DB[(Local Database)]
-    DB -->|Return reference audio path| UI
-    UI -->|Play native audio| UI
-    UI -->|Record user audio| Audio[Audio Analytics Module]
-    Audio -->|pYIN + DTW analysis| DB
-    DB -->|Return pitch curves + score| UI
-    UI -->|Visual pitch overlay| UI
+sequenceDiagram
+    autonumber
+    participant UI as Frontend UI
+    participant PC as Pipeline Controller
+    participant DB as Local DB
+
+    Phase 1: Material Loading
+    UI->>PC: Open Shadowing Drills / Select Failing Word
+    PC->>DB: Fetch Shadowing_Media (Audio path + native_pitch_contour)
+    DB-->>PC: Return Reference Media Metadata Payload
+    PC-->>UI: Populate Player & Load Audio Stream Assets
+
+    Phase 2: Listening & Recording
+    UI->>UI: Play Native Speaker Audio Clip
+    UI->>PC: User Records Shadowing Attempt (.wav / .ogg)
+
+    Phase 3: Mathematical Pitch Alignment
+    PC->>PC: Execute Librosa Pipeline
+    Note over PC: 1. pYIN frequency extraction
+    Note over PC: 2. Normalize pitch range
+    Note over PC: 3. DTW alignment vs native contour
+
+    Phase 4: Score Compilation & Persistence
+    PC-->>UI: Return pitch_match_score (Render graph overlap)
+    PC->>DB: Save Shadowing_Attempt (Commit score to DB)
 ```
 
-1. UI shows recommendations: high-difficulty cards mapped to shadowing media
-2. User selects a drill, native reference audio plays
-3. User records their attempt
-4. Audio Analytics Module runs pYIN pitch extraction + DTW alignment on backend
-5. Pitch match score (0.0-1.0) and both curves returned
-6. UI renders visual overlay comparing user vs native pitch contour
+**Phase 1: Material Loading**
+1. User opens shadowing drills, selects a failing word
+2. Pipeline Controller fetches Shadowing_Media from DB (audio path + cached native_pitch_contour array)
+3. Reference media metadata returned, player populated with audio stream assets
+
+**Phase 2: Listening & Recording**
+4. Native speaker audio clip plays for user to listen
+5. User records their shadowing attempt (.wav / .ogg)
+
+**Phase 3: Mathematical Pitch Alignment**
+6. Pipeline Controller executes Librosa processing pipeline:
+   - Extract user frequency profile via pYIN
+   - Normalize pitch range relative to user baseline
+   - Run Dynamic Time Warping (DTW) vs native contour template
+
+**Phase 4: Score Compilation & Persistence**
+7. pitch_match_score (0.0-1.0) returned to UI
+8. UI renders visual graph overlap comparing user vs native pitch contour
+9. Shadowing_Attempt saved to DB (adjusts overall card weight)
 
 ## Roleplay Engine Pipeline
 
-1. **Select targets**: Pull user's top N high-difficulty flashcards
-2. **Generate scenario**: Create context that forces target vocabulary
-3. **Enforce constraints**: LLM prompt includes mandatory vocabulary/grammar
-4. **Validate response**: Check if user used target structures correctly
-5. **Correct in-character**: If validation fails, provide natural correction without breaking immersion
-6. **Adaptive scaling**: Adjust scenario complexity based on real-time difficulty metrics
+1. **Pre-warm connection**: Open WebSocket handshake with AI before mic engages (eliminates handshake lag)
+2. **Select targets**: Pull user's top N high-difficulty flashcards + vocabulary profile
+3. **Generate scenario**: Create context that forces target vocabulary
+4. **Enforce constraints**: LLM prompt includes mandatory vocabulary/grammar + word ceiling rule
+5. **Validate response**: Check if user used target structures correctly
+6. **Correct in-character**: If validation fails, provide natural correction without breaking immersion
+7. **Adaptive scaling**: Adjust scenario complexity based on real-time difficulty metrics
+8. **Async save**: Background write of chat logs and evaluations (crash resilience)
 
 ### LLM Prompt Isolation (NFR-2.2)
 - System instructions separated from user inputs
