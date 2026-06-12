@@ -266,27 +266,35 @@ sequenceDiagram
     participant DB as Local DB
     participant AI as AI Cloud API
 
-    Phase 1: Pre-Warming
+    rect rgb(240, 240, 255)
+    Note over UI,AI: Phase 1 - Pre-Warming
     UI->>PC: Tap Roleplay Menu
     PC->>DB: Query Profile (Allowed words, targeted grammar tokens)
     DB-->>PC: Return User Vocab Profile Matrix
     PC->>AI: Pre-warm Open Handshake (Open WebSocket Stream)
     AI-->>PC: Connection Ready
     PC-->>UI: UI Mic Ready (Transition UI state)
+    end
 
-    Phase 2: The Conversational Turn
+    rect rgb(240, 255, 240)
+    Note over UI,AI: Phase 2 - The Conversational Turn
     UI->>PC: Stream User Audio Chunk (Silero VAD captures speech end)
     PC->>AI: Forward Live Audio Stream to STT
     AI-->>PC: Return Transcribed Chinese Text String
+    end
 
-    Phase 3: Grammar Checks & Output Generation
+    rect rgb(255, 240, 240)
+    Note over UI,AI: Phase 3 - Grammar Checks & Output Generation
     Note over PC: Run Grammar Constraint Validation
     PC->>AI: Send Text + Constraints (Evaluation status + Word ceiling rule)
     AI-->>PC: Stream Response Text & Audio Buffer Bytes
     PC-->>UI: Play Balanced Audio Stream Immediately
+    end
 
-    Phase 4: Async Save Loop
+    rect rgb(255, 255, 240)
+    Note over UI,AI: Phase 4 - Async Save Loop
     PC->>DB: Async Background Save (Write text turn log to Chat_Log & Turn_Evaluation)
+    end
 ```
 
 **Phase 1: Pre-Warming**
@@ -320,25 +328,33 @@ sequenceDiagram
     participant PC as Pipeline Controller
     participant DB as Local DB
 
-    Phase 1: Material Loading
+    rect rgb(240, 240, 255)
+    Note over UI,DB: Phase 1 - Material Loading
     UI->>PC: Open Shadowing Drills / Select Failing Word
     PC->>DB: Fetch Shadowing_Media (Audio path + native_pitch_contour)
     DB-->>PC: Return Reference Media Metadata Payload
     PC-->>UI: Populate Player & Load Audio Stream Assets
+    end
 
-    Phase 2: Listening & Recording
+    rect rgb(240, 255, 240)
+    Note over UI,DB: Phase 2 - Listening & Recording
     UI->>UI: Play Native Speaker Audio Clip
     UI->>PC: User Records Shadowing Attempt (.wav / .ogg)
+    end
 
-    Phase 3: Mathematical Pitch Alignment
+    rect rgb(255, 240, 240)
+    Note over UI,DB: Phase 3 - Mathematical Pitch Alignment
     PC->>PC: Execute Librosa Pipeline
     Note over PC: 1. pYIN frequency extraction
     Note over PC: 2. Normalize pitch range
     Note over PC: 3. DTW alignment vs native contour
+    end
 
-    Phase 4: Score Compilation & Persistence
+    rect rgb(255, 255, 240)
+    Note over UI,DB: Phase 4 - Score Compilation & Persistence
     PC-->>UI: Return pitch_match_score (Render graph overlap)
     PC->>DB: Save Shadowing_Attempt (Commit score to DB)
+    end
 ```
 
 **Phase 1: Material Loading**
