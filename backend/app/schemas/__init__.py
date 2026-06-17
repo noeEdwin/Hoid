@@ -6,6 +6,7 @@ from app.schemas.flashcard import (
 )
 from app.schemas.review import ReviewQueueItem, ReviewResponse, ReviewSubmit
 from app.schemas.vocabulary import DifficultToken, VocabProfileItem
+from app.schemas.roleplay import ScenarioListResponse, ScenarioResponse
 
 __all__ = [
     "FlashcardCreate",
@@ -17,4 +18,6 @@ __all__ = [
     "ReviewQueueItem",
     "DifficultToken",
     "VocabProfileItem",
+    "ScenarioResponse",
+    "ScenarioListResponse",
 ]

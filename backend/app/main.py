@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routers import flashcards, vocabulary
+from app.routers import flashcards, vocabulary, roleplay
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +39,7 @@ app.add_middleware(
 
 app.include_router(flashcards.router, prefix="/api")
 app.include_router(vocabulary.router, prefix="/api")
+app.include_router(roleplay.router, prefix="/api")
 
 
 @app.get("/health")
