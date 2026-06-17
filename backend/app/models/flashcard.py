@@ -10,28 +10,20 @@ from sqlmodel import Field, SQLModel
 class Flashcard(SQLModel, table=True):
     __tablename__ = "flashcard"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        sa_column_kwargs={"server_default": text("gen_random_uuid()")},
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     character: str = Field(sa_column=Column(Text, nullable=False, index=True))
     pinyin: str = Field(sa_column=Column(Text, nullable=False))
     meaning: str = Field(sa_column=Column(Text, nullable=False))
     grammar_type: str = Field(sa_column=Column(Text, nullable=False, index=True))
     created_at: datetime = Field(
-        sa_column_kwargs={"server_default": text("now()")},
+        sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")},
     )
 
 
 class UserVocabularyState(SQLModel, table=True):
     __tablename__ = "user_vocabulary_state"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        sa_column_kwargs={"server_default": text("gen_random_uuid()")},
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     flashcard_id: uuid.UUID = Field(
         sa_column=Column(
             ForeignKey("flashcard.id"),
@@ -53,6 +45,10 @@ class UserVocabularyState(SQLModel, table=True):
         sa_column=Column(Integer, nullable=False, server_default=text("0")),
     )
     total_failures: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, server_default=text("0")),
+    )
+    consecutive_failures: int = Field(
         default=0,
         sa_column=Column(Integer, nullable=False, server_default=text("0")),
     )

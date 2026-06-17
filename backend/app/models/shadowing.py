@@ -10,11 +10,7 @@ from sqlmodel import Field, SQLModel
 class ShadowingMedia(SQLModel, table=True):
     __tablename__ = "shadowing_media"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        sa_column_kwargs={"server_default": text("gen_random_uuid()")},
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     flashcard_id: uuid.UUID = Field(
         sa_column=Column(
             ForeignKey("flashcard.id"), nullable=False, index=True
@@ -27,11 +23,7 @@ class ShadowingMedia(SQLModel, table=True):
 class ShadowingAttempt(SQLModel, table=True):
     __tablename__ = "shadowing_attempt"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        sa_column_kwargs={"server_default": text("gen_random_uuid()")},
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     shadowing_media_id: uuid.UUID = Field(
         sa_column=Column(
             ForeignKey("shadowing_media.id"), nullable=False, index=True
@@ -42,5 +34,5 @@ class ShadowingAttempt(SQLModel, table=True):
     )
     user_pitch_curve: str | None = Field(default=None, sa_column=Column(Text))
     completed_at: datetime = Field(
-        sa_column_kwargs={"server_default": text("now()")},
+        sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")},
     )

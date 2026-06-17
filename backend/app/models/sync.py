@@ -10,14 +10,10 @@ from sqlmodel import Field, SQLModel
 class SyncLog(SQLModel, table=True):
     __tablename__ = "sync_log"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        sa_column_kwargs={"server_default": text("gen_random_uuid()")},
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     direction: str = Field(sa_column=Column(Text, nullable=False))
     synced_at: datetime = Field(
-        sa_column_kwargs={"server_default": text("now()")},
+        sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")},
     )
     flashcards_upserted: int = Field(
         default=0,
