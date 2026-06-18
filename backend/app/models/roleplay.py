@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Text, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Text, text
 from sqlmodel import Field, SQLModel
 
 
@@ -19,7 +19,7 @@ class RoleplaySession(SQLModel, table=True):
     started_at: datetime = Field(
         sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")},
     )
-    ended_at: datetime | None = Field(default=None, sa_column=Column(Text))
+    ended_at: datetime | None = Field(default=None, sa_column=Column(DateTime))
 
 
 class ChatLog(SQLModel, table=True):

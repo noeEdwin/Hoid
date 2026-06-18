@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tars - Roleplay Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; }
+        .header { background: #16213e; padding: 16px; text-align: center; border-bottom: 1px solid #333; }
+        .header h1 { font-size: 20px; color: #e94560; }
+        .header p { font-size: 12px; color: #888; margin-top: 4px; }
+        .setup { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .setup select, .setup button { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #16213e; color: #eee; font-size: 16px; }
+        .setup button { background: #e94560; border: none; cursor: pointer; font-weight: bold; }
+        .setup button:disabled { background: #555; cursor: not-allowed; }
+        .chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; }
+        .message.user { align-self: flex-end; background: #e94560; }
+        .message.tars { align-self: flex-start; background: #16213e; border: 1px solid #333; }
+        .message .text { font-size: 16px; }
+        .message .pinyin { font-size: 12px; color: #aaa; margin-top: 4px; }
+        .message .target { font-size: 11px; color: #e94560; margin-top: 4px; }
+        .controls { padding: 16px; display: flex; gap: 12px; justify-content: center; align-items: center; background: #16213e; border-top: 1px solid #333; }
+        .btn-talk { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #e94560; background: transparent; color: #e94560; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .btn-talk.recording { background: #e94560; color: white; animation: pulse 1s infinite; }
+        .btn-talk:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+        .btn-talk:disabled.recording { background: #555; animation: none; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .status { font-size: 12px; color: #888; text-align: center; padding: 8px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Tars Roleplay Test</h1>
+        <p>STT + LLM + TTS Integration</p>
+        <p id="secure-note" style="color:#e94560; font-size:11px; margin-top:4px;"></p>
+    </div>
+
+    <div class="setup" id="setup">
+        <select id="scenario-select">
+            <option value="">Loading scenarios...</option>
+        </select>
+        <button id="btn-start" onclick="startSession()">Start Session</button>
+    </div>
+
+    <div class="status hidden" id="status"></div>
+    <div class="chat hidden" id="chat"></div>
+
+    <div class="controls hidden" id="controls">
+        <button class="btn-talk" id="btn-talk" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()">
+            TALK
+        </button>
+    </div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let sessionId = null;
+        let isRecording = false;
+
+        const API = window.location.origin;
+
+        async function loadScenarios() {
+            const res = await fetch(`${API}/api/roleplay/scenarios`);
+            const data = await res.json();
+            const select = document.getElementById('scenario-select');
+            select.innerHTML = '';
+            if (data.scenarios.length === 0) {
+                select.innerHTML = '<option value="">No scenarios found</option>';
+                return;
+            }
+            data.scenarios.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `${s.title} (${s.difficulty})`;
+                select.appendChild(opt);
+            });
+        }
+
+        async function startSession() {
+            const scenarioId = document.getElementById('scenario-select').value;
+            if (!scenarioId) return;
+
+            document.getElementById('btn-start').disabled = true;
+            showStatus('Starting session...');
+
+            try {
+                const res = await fetch(`${API}/api/roleplay/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scenario_id: scenarioId }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    showStatus(`Error: ${err.detail || res.statusText}`);
+                    document.getElementById('btn-start').disabled = false;
+                    return;
+                }
+
+                const data = await res.json();
+                sessionId = data.session_id;
+
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('chat').classList.remove('hidden');
+                document.getElementById('controls').classList.remove('hidden');
+                document.getElementById('status').classList.remove('hidden');
+
+                addMessage('tars', data.initial_greeting.text, data.initial_greeting.pinyin);
+                playAudio(data.initial_greeting.audio_b64);
+
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/api/roleplay/stream/${data.session_id}`;
+                connectWebSocket(wsUrl);
+            } catch (e) {
+                showStatus(`Error: ${e.message}`);
+                document.getElementById('btn-start').disabled = false;
+            }
+        }
+
+        function connectWebSocket(url) {
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                showStatus('Connected. Tap and hold to talk.');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.event_type === 'tars_response') {
+                    if (data.transcribed_user_text) {
+                        addMessage('user', data.transcribed_user_text);
+                    }
+                    if (data.ai_text_reply) {
+                        let targetInfo = '';
+                        if (data.grammar_evaluations && data.grammar_evaluations.length > 0) {
+                            const eval_ = data.grammar_evaluations[0];
+                            targetInfo = eval_.passed
+                                ? `Used: ${eval_.target_token}`
+                                : `Missing: ${eval_.target_token}`;
+                        }
+                        addMessage('tars', data.ai_text_reply, data.ai_pinyin, targetInfo);
+                        playAudio(data.ai_audio_b64);
+                    }
+                } else if (data.event_type === 'hint_response') {
+                    addMessage('tars', `Hint: ${data.hint_text}\nStructure: ${data.suggested_structure}`);
+                } else if (data.event_type === 'error') {
+                    showStatus(`Error: ${data.message}`);
+                }
+            };
+
+            ws.onclose = () => {
+                showStatus('Disconnected.');
+            };
+
+            ws.onerror = (e) => {
+                showStatus('WebSocket error.');
+            };
+        }
+
+        function addMessage(sender, text, pinyin = '', target = '') {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            let html = `<div class="text">${text}</div>`;
+            if (pinyin) html += `<div class="pinyin">${pinyin}</div>`;
+            if (target) html += `<div class="target">${target}</div>`;
+            div.innerHTML = html;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function showStatus(msg) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function playAudio(b64) {
+            const audio = new Audio(`data:audio/mp3;base64,${b64}`);
+            audio.play().catch(() => {});
+        }
+
+        async function startRecording() {
+            if (isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showStatus('Mic not available. Use HTTPS or localhost. On iPhone, open this page in Safari from the same network.');
+                return;
+            }
+
+            isRecording = true;
+
+            const btn = document.getElementById('btn-talk');
+            btn.classList.add('recording');
+            btn.textContent = 'LISTENING';
+            showStatus('Recording... release to send');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? 'audio/webm;codecs=opus'
+                    : 'audio/webm';
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const b64 = reader.result.split(',')[1];
+                        ws.send(JSON.stringify({
+                            event_type: 'user_speech',
+                            audio_chunk_b64: b64,
+                        }));
+                        showStatus('Processing...');
+                    };
+                    reader.readAsDataURL(blob);
+                };
+
+                mediaRecorder.start();
+            } catch (e) {
+                isRecording = false;
+                btn.classList.remove('recording');
+                btn.textContent = 'TALK';
+                showStatus(`Mic error: ${e.message}`);
+            }
+        }
+
+        function stopRecording() {
+            if (!isRecording || !mediaRecorder) return;
+            isRecording = false;
+
+            const btn = document.getElementById('btn-talk');
+            btn.classList.remove('recording');
+            btn.textContent = 'TALK';
+
+            if (mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        }
+
+        loadScenarios();
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('secure-note').textContent =
+                'Mic requires HTTPS or localhost. If on iPhone, try Chrome or use a tunnel (e.g., ngrok).';
+        }
+    </script>
+</body>
+</html>
