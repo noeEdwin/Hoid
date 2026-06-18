@@ -5,9 +5,26 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "edge-tts>=7.2.8",
     "fastapi>=0.115.0",
+    "httpx>=0.28.1",
+    "openai>=2.43.0",
     "pydantic-settings>=2.14.1",
     "python-dotenv>=1.2.2",
     "sqlmodel>=0.0.38",
     "uvicorn[standard]>=0.34.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.0",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
+markers = [
+    "integration: marks tests that hit real APIs (deselect with '-m not integration')",
 ]

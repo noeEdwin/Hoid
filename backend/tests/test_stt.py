@@ -7,6 +7,7 @@ import pytest
 from openai import RateLimitError
 
 from app.services.stt import transcribe_audio
+from app.services.tts import synthesize_speech
 
 
 def _mock_response(text: str) -> MagicMock:
@@ -101,3 +102,12 @@ class TestTranscribeAudio:
             with pytest.raises(RateLimitError):
                 await transcribe_audio(b"audio")
             assert create_mock.call_count == 3
+
+
+class TestTranscribeAudioLive:
+    @pytest.mark.integration
+    async def test_live_transcribe(self) -> None:
+        audio = await synthesize_speech("你好")
+        result = await transcribe_audio(audio)
+        assert isinstance(result, str)
+        assert len(result) > 0

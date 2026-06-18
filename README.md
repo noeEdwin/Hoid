@@ -15,8 +15,8 @@ Learn vocabulary via flashcards, then practice them in AI-generated roleplay sce
 | Backend | FastAPI (Python 3.14+) |
 | Database | SQLite via SQLModel |
 | STT | Groq Whisper |
-| LLM | DeepSeek-V3 |
-| TTS | Edge-TTS / Deepgram |
+| LLM | OpenAI (gpt-4o-mini) |
+| TTS | Edge-TTS |
 | Local Audio | Silero VAD + Librosa |
 
 ## Project Structure
@@ -26,19 +26,37 @@ tars/
 ├── AGENTS.md                 # Full project context, schema, workflows
 ├── opencode.json             # opencode configuration
 ├── app/api/CONTRACTS.md      # API endpoint contracts
-├── backend/                  # FastAPI server (future)
+├── backend/                  # FastAPI server
+│   ├── app/
+│   │   ├── core/             # Config, database
+│   │   ├── models/           # SQLModel entities (9 tables)
+│   │   ├── routers/          # API route handlers
+│   │   ├── schemas/          # Pydantic request/response models
+│   │   └── services/         # Business logic (SRS, STT, TTS)
+│   ├── tests/                # pytest test suite
+│   └── .env.example          # Config template
 ├── mobile/                   # React Native Expo app (future)
-├── shared/assets/audio/      # Shadowing reference audio
-└── tests/                    # Integration tests
+└── shared/assets/audio/      # Shadowing reference audio
 ```
 
 ## Getting Started
 
-### Backend
+### Prerequisites
+
+- Python 3.14+
+- [uv](https://docs.astral.sh/uv/) package manager
+
+### Backend Setup
 
 ```bash
+# Install dependencies
 uv sync
-uv run uvicorn app.main:app --reload
+
+# Copy env and add your API keys
+cp backend/.env.example .env
+
+# Run the server
+cd backend && uv run uvicorn app.main:app --reload
 ```
 
 ### Mobile
@@ -48,6 +66,37 @@ cd mobile
 npm install
 npx expo start
 ```
+
+## Testing
+
+All tests live in `backend/tests/`. Run from the project root:
+
+```bash
+# Run all unit tests (fast, no network)
+uv run pytest -v
+
+# Skip integration tests (default for CI)
+uv run pytest -v -m "not integration"
+
+# Run only integration tests (hits real APIs, requires network + API keys)
+uv run pytest -v -m integration
+
+# Run a specific test file
+uv run pytest backend/tests/test_stt.py -v
+
+# Run a specific test class
+uv run pytest backend/tests/test_stt.py::TestTranscribeAudio -v
+
+# Run with short traceback
+uv run pytest -v --tb=short
+```
+
+### Test Categories
+
+| Category | Marker | Requires | Description |
+|----------|--------|----------|-------------|
+| Unit | (none) | Nothing | Mocked, fast, deterministic |
+| Integration | `@pytest.mark.integration` | Network + API keys | Hits real Groq/Edge-TTS APIs |
 
 ## Documentation
 
