@@ -7,6 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.core.config import settings
 from app.models import (  # noqa: F401 — ensure all tables are registered
     ChatLog,
+    Deck,
     Flashcard,
     RoleplaySession,
     Scenario,

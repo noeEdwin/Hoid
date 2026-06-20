@@ -87,7 +87,7 @@ async def start_roleplay(
         .limit(5)
     )
     difficult = list(db.exec(statement).all())
-    forced_tokens = [flashcard.character for _, flashcard in difficult]
+    forced_tokens = [flashcard.answer for _, flashcard in difficult if flashcard.answer]
     if not forced_tokens:
         forced_tokens = target_grammar[:3]
 
@@ -97,7 +97,7 @@ async def start_roleplay(
         .where(UserVocabularyState.difficulty_score <= 0.5)
     )
     known = list(db.exec(profile_stmt).all())
-    known_vocab = [flashcard.character for _, flashcard in known]
+    known_vocab = [flashcard.answer for _, flashcard in known if flashcard.answer]
     if not known_vocab:
         known_vocab = ["你好", "谢谢", "请", "我", "你", "是", "好", "不"]
 

@@ -7,10 +7,10 @@ from pydantic import BaseModel
 
 class DifficultToken(BaseModel):
     flashcard_id: uuid.UUID
-    character: str
-    pinyin: str
-    meaning: str
-    grammar_type: str
+    sentence: str
+    answer: str
+    answer_pinyin: str
+    card_type: str
     difficulty_score: float
     total_reviews: int
     total_failures: int
@@ -22,9 +22,9 @@ class DifficultTokensResponse(BaseModel):
 
 class VocabProfileItem(BaseModel):
     flashcard_id: uuid.UUID
-    character: str
-    pinyin: str
-    meaning: str
+    sentence: str
+    answer: str
+    answer_pinyin: str
     difficulty_score: float
 
 

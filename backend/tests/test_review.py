@@ -15,8 +15,8 @@ class TestReviewQueue:
         assert r.json()["total_pending"] == 0
 
     def test_orders_by_difficulty(self, client: TestClient, create_flashcard) -> None:
-        fc1 = create_flashcard(character="朋友", meaning="friend")
-        fc2 = create_flashcard(character="咖啡", meaning="coffee")
+        fc1 = create_flashcard(sentence="我___你", answer="爱")
+        fc2 = create_flashcard(sentence="他是我的___", answer="朋友")
         client.post("/api/flashcards/review/submit", json={
             "flashcard_id": str(fc1.id),
             "review_rating": "easy",
@@ -30,12 +30,12 @@ class TestReviewQueue:
         r = client.get("/api/flashcards/review")
         queue = r.json()["queue"]
         assert len(queue) == 2
-        assert queue[0]["character"] == "咖啡"
-        assert queue[1]["character"] == "朋友"
+        assert queue[0]["answer"] == "朋友"
+        assert queue[1]["answer"] == "爱"
 
     def test_respects_limit(self, client: TestClient, create_flashcard) -> None:
         for i in range(5):
-            fc = create_flashcard(character=f"字{i}", meaning=f"word{i}")
+            fc = create_flashcard(sentence=f"句子{i}", answer=f"词{i}")
             client.post("/api/flashcards/review/submit", json={
                 "flashcard_id": str(fc.id),
                 "review_rating": "hard",

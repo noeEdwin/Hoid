@@ -27,10 +27,11 @@ class ReviewResponse(BaseModel):
 
 class ReviewQueueItem(BaseModel):
     flashcard_id: uuid.UUID
-    character: str
-    pinyin: str
-    meaning: str
-    grammar_type: str
+    sentence: str
+    sentence_pinyin: str
+    answer: str
+    answer_pinyin: str
+    card_type: str
     srs_interval: int
     ease_factor: float
     difficulty_score: float

@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, col, select
 
 from app.core.database import get_session
-from app.models.flashcard import Flashcard, UserVocabularyState
+from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 from app.schemas.flashcard import (
+    DeckCreate,
+    DeckResponse,
     FlashcardCreate,
     FlashcardListResponse,
     FlashcardResponse,
@@ -29,19 +31,62 @@ from app.services.srs import (
 router = APIRouter(tags=["flashcards"])
 
 
+@router.get("/decks", response_model=list[DeckResponse])
+def list_decks(
+    session: Session = Depends(get_session),
+) -> list[DeckResponse]:
+    decks = list(session.exec(select(Deck)).all())
+    return [DeckResponse.model_validate(d) for d in decks]
+
+
+@router.post("/decks", response_model=DeckResponse, status_code=201)
+def create_deck(
+    data: DeckCreate,
+    session: Session = Depends(get_session),
+) -> DeckResponse:
+    deck = Deck(name=data.name, description=data.description)
+    session.add(deck)
+    session.commit()
+    session.refresh(deck)
+    return DeckResponse.model_validate(deck)
+
+
+@router.delete("/decks/{deck_id}")
+def delete_deck(
+    deck_id: uuid.UUID,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    deck = session.get(Deck, str(deck_id))
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    flashcards = list(
+        session.exec(select(Flashcard).where(Flashcard.deck_id == str(deck_id))).all()
+    )
+    for fc in flashcards:
+        state = session.exec(
+            select(UserVocabularyState).where(UserVocabularyState.flashcard_id == fc.id)
+        ).first()
+        if state:
+            session.delete(state)
+        session.delete(fc)
+    session.delete(deck)
+    session.commit()
+    return {"status": "deleted", "deck_id": str(deck_id)}
+
+
 @router.get("/flashcards", response_model=FlashcardListResponse)
 def list_flashcards(
-    grammar_type: str | None = Query(None),
+    deck_id: uuid.UUID | None = Query(None),
     search: str | None = Query(None),
     session: Session = Depends(get_session),
 ) -> FlashcardListResponse:
     statement = select(Flashcard)
-    if grammar_type:
-        statement = statement.where(Flashcard.grammar_type == grammar_type)
+    if deck_id:
+        statement = statement.where(Flashcard.deck_id == deck_id)
     if search:
         statement = statement.where(
-            (Flashcard.character.contains(search))
-            | (Flashcard.meaning.contains(search))
+            (Flashcard.sentence.contains(search))
+            | (Flashcard.answer.contains(search))
         )
     flashcards = list(session.exec(statement).all())
     return FlashcardListResponse(
@@ -56,10 +101,16 @@ def create_flashcard(
     session: Session = Depends(get_session),
 ) -> FlashcardResponse:
     flashcard = Flashcard(
-        character=data.character,
-        pinyin=data.pinyin,
-        meaning=data.meaning,
-        grammar_type=data.grammar_type,
+        deck_id=data.deck_id,
+        card_type=data.card_type,
+        sentence=data.sentence,
+        sentence_pinyin=data.sentence_pinyin,
+        answer=data.answer,
+        answer_pinyin=data.answer_pinyin,
+        context=data.context,
+        context_pinyin=data.context_pinyin,
+        image_path=data.image_path,
+        audio_path=data.audio_path,
     )
     session.add(flashcard)
     session.commit()
@@ -73,7 +124,7 @@ def update_flashcard(
     data: FlashcardUpdate,
     session: Session = Depends(get_session),
 ) -> FlashcardResponse:
-    flashcard = session.get(Flashcard, flashcard_id)
+    flashcard = session.get(Flashcard, str(flashcard_id))
     if not flashcard:
         raise HTTPException(status_code=404, detail="Flashcard not found")
     update_data = data.model_dump(exclude_unset=True)
@@ -90,12 +141,12 @@ def delete_flashcard(
     flashcard_id: uuid.UUID,
     session: Session = Depends(get_session),
 ) -> dict[str, str]:
-    flashcard = session.get(Flashcard, flashcard_id)
+    flashcard = session.get(Flashcard, str(flashcard_id))
     if not flashcard:
         raise HTTPException(status_code=404, detail="Flashcard not found")
     state = session.exec(
         select(UserVocabularyState).where(
-            UserVocabularyState.flashcard_id == flashcard_id
+            UserVocabularyState.flashcard_id == str(flashcard_id)
         )
     ).first()
     if state:
@@ -120,10 +171,11 @@ def get_review_queue(
     queue = [
         ReviewQueueItem(
             flashcard_id=state.flashcard_id,
-            character=flashcard.character,
-            pinyin=flashcard.pinyin,
-            meaning=flashcard.meaning,
-            grammar_type=flashcard.grammar_type,
+            sentence=flashcard.sentence or "",
+            sentence_pinyin=flashcard.sentence_pinyin or "",
+            answer=flashcard.answer or "",
+            answer_pinyin=flashcard.answer_pinyin or "",
+            card_type=flashcard.card_type,
             srs_interval=state.srs_interval,
             ease_factor=state.ease_factor,
             difficulty_score=state.difficulty_score,
@@ -142,11 +194,11 @@ def submit_review(
 ) -> ReviewResponse:
     state = session.exec(
         select(UserVocabularyState).where(
-            UserVocabularyState.flashcard_id == data.flashcard_id
+            UserVocabularyState.flashcard_id == str(data.flashcard_id)
         )
     ).first()
     if not state:
-        state = UserVocabularyState(flashcard_id=data.flashcard_id)
+        state = UserVocabularyState(flashcard_id=str(data.flashcard_id))
         session.add(state)
         session.flush()
 

@@ -30,10 +30,10 @@ def get_difficult_tokens(
     tokens = [
         DifficultToken(
             flashcard_id=state.flashcard_id,
-            character=flashcard.character,
-            pinyin=flashcard.pinyin,
-            meaning=flashcard.meaning,
-            grammar_type=flashcard.grammar_type,
+            sentence=flashcard.sentence or "",
+            answer=flashcard.answer or "",
+            answer_pinyin=flashcard.answer_pinyin or "",
+            card_type=flashcard.card_type,
             difficulty_score=state.difficulty_score,
             total_reviews=state.total_reviews,
             total_failures=state.total_failures,
@@ -58,9 +58,9 @@ def get_vocabulary_profile(
     known_words = [
         VocabProfileItem(
             flashcard_id=state.flashcard_id,
-            character=flashcard.character,
-            pinyin=flashcard.pinyin,
-            meaning=flashcard.meaning,
+            sentence=flashcard.sentence or "",
+            answer=flashcard.answer or "",
+            answer_pinyin=flashcard.answer_pinyin or "",
             difficulty_score=state.difficulty_score,
         )
         for state, flashcard in results

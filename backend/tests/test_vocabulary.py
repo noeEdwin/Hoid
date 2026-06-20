@@ -10,8 +10,8 @@ class TestDifficultyEndpoint:
         assert r.json()["difficult_tokens"] == []
 
     def test_returns_top_n(self, client: TestClient, create_flashcard) -> None:
-        fc1 = create_flashcard(character="朋友", meaning="friend")
-        fc2 = create_flashcard(character="咖啡", meaning="coffee")
+        fc1 = create_flashcard(sentence="我___你", answer="爱")
+        fc2 = create_flashcard(sentence="他是我的___", answer="朋友")
         client.post("/api/flashcards/review/submit", json={
             "flashcard_id": str(fc1.id),
             "review_rating": "easy",
@@ -25,11 +25,11 @@ class TestDifficultyEndpoint:
         r = client.get("/api/vocabulary/difficulty?n=1")
         tokens = r.json()["difficult_tokens"]
         assert len(tokens) == 1
-        assert tokens[0]["character"] == "咖啡"
+        assert tokens[0]["answer"] == "朋友"
 
     def test_respects_n_parameter(self, client: TestClient, create_flashcard) -> None:
         for i in range(5):
-            fc = create_flashcard(character=f"字{i}", meaning=f"word{i}")
+            fc = create_flashcard(sentence=f"句子{i}", answer=f"词{i}")
             client.post("/api/flashcards/review/submit", json={
                 "flashcard_id": str(fc.id),
                 "review_rating": "hard",
@@ -47,9 +47,9 @@ class TestProfileEndpoint:
         assert r.json()["total_cards"] == 0
 
     def test_filters_by_threshold(self, client: TestClient, create_flashcard) -> None:
-        fc1 = create_flashcard(character="朋友", meaning="friend")
-        fc2 = create_flashcard(character="咖啡", meaning="coffee")
-        fc3 = create_flashcard(character="跑", meaning="run")
+        fc1 = create_flashcard(sentence="我___你", answer="爱")
+        fc2 = create_flashcard(sentence="他是我的___", answer="朋友")
+        fc3 = create_flashcard(sentence="我想___咖啡", answer="喝")
         client.post("/api/flashcards/review/submit", json={
             "flashcard_id": str(fc1.id),
             "review_rating": "easy",
@@ -63,12 +63,12 @@ class TestProfileEndpoint:
             })
         r = client.get("/api/vocabulary/profile?threshold=0.5")
         data = r.json()
-        known_chars = [w["character"] for w in data["known_words"]]
-        assert "朋友" in known_chars
-        assert "咖啡" not in known_chars
+        known_answers = [w["answer"] for w in data["known_words"]]
+        assert "爱" in known_answers
+        assert "朋友" not in known_answers
 
     def test_total_cards_counts_all(self, client: TestClient, create_flashcard) -> None:
         for i in range(5):
-            create_flashcard(character=f"字{i}", meaning=f"word{i}")
+            create_flashcard(sentence=f"句子{i}", answer=f"词{i}")
         r = client.get("/api/vocabulary/profile")
         assert r.json()["total_cards"] == 5

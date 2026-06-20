@@ -5,12 +5,12 @@ from collections.abc import Generator
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from app.main import app
 from app.core.database import get_session
-from app.models.flashcard import Flashcard, UserVocabularyState
+from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 
 
 @pytest.fixture(name="db_session")
@@ -41,16 +41,23 @@ def create_flashcard(db_session: Session) -> Generator:
     created = []
 
     def _create(
-        character: str = "朋友",
-        pinyin: str = "péng you",
-        meaning: str = "friend",
-        grammar_type: str = "noun",
+        sentence: str = "我___你",
+        sentence_pinyin: str = "wǒ ài nǐ",
+        answer: str = "爱",
+        answer_pinyin: str = "ài",
+        card_type: str = "cloze_deletion",
     ) -> Flashcard:
+        deck = Deck(name="Test Deck")
+        db_session.add(deck)
+        db_session.flush()
+
         flashcard = Flashcard(
-            character=character,
-            pinyin=pinyin,
-            meaning=meaning,
-            grammar_type=grammar_type,
+            deck_id=deck.id,
+            sentence=sentence,
+            sentence_pinyin=sentence_pinyin,
+            answer=answer,
+            answer_pinyin=answer_pinyin,
+            card_type=card_type,
         )
         db_session.add(flashcard)
         db_session.commit()
@@ -70,6 +77,3 @@ def create_flashcard(db_session: Session) -> Generator:
             db_session.delete(state)
         db_session.delete(fc)
     db_session.commit()
-
-
-from sqlmodel import select  # noqa: E402
