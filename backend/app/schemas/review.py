@@ -1,32 +1,30 @@
 from __future__ import annotations
 
-import uuid
 from enum import Enum
 
 from pydantic import BaseModel
 
 
 class ReviewRating(str, Enum):
-    easy = "easy"
     good = "good"
     hard = "hard"
 
 
 class ReviewSubmit(BaseModel):
-    flashcard_id: uuid.UUID
-    review_rating: ReviewRating
+    flashcard_id: str
+    is_correct: bool
     response_time_ms: int
 
 
 class ReviewResponse(BaseModel):
     status: str
-    flashcard_id: uuid.UUID
+    flashcard_id: str
     new_srs_interval: int
     new_difficulty_score: float
 
 
 class ReviewQueueItem(BaseModel):
-    flashcard_id: uuid.UUID
+    flashcard_id: str
     sentence: str
     sentence_pinyin: str
     answer: str
@@ -37,6 +35,7 @@ class ReviewQueueItem(BaseModel):
     difficulty_score: float
     total_reviews: int
     total_failures: int
+    consecutive_failures: int
 
 
 class ReviewQueueResponse(BaseModel):

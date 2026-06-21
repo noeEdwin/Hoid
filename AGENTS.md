@@ -64,6 +64,17 @@ tars/
 - No login system. Hardcoded default user profile.
 - All data belongs to one local user. No multi-tenancy.
 
+### Cloze Deletion First
+- Flashcards are cloze deletion only: full sentence with blank, user types missing word in hanzi
+- No English translations on cards (only pinyin and hanzi)
+- Auto-rating: correct → "good", incorrect → "hard" (no manual rating buttons)
+- Card type system: abstract base class, cloze deletion is first implementation (inheritance for future types)
+
+### Freeform Decks
+- User creates custom decks (e.g., "HSK 1", "Travel Phrases")
+- Each deck has a name and optional description
+- Backend seeds a "Starter Deck" with 5 test cards on first run
+
 ### Hybrid Local/Backend Split
 - **Flashcard review is local-only** - runs entirely on device, no backend needed
 - **Backend mirrors flashcard DB** - for sync/backup and roleplay/shadowing features
@@ -71,19 +82,20 @@ tars/
 
 ### Database Sync Strategy
 - Two SQLite databases: one on mobile (primary), one on backend (mirror)
-- **Mobile-wins conflict resolution** - local changes always overwrite backend
+- **Last-write-wins conflict resolution** - based on `updated_at` timestamp
 - **Sync timing**: on session end + on app open
-- SyncLog tracks what's been synced between devices
+- **Pending reviews queue** - offline writes stored locally, pushed to backend on next sync
+- Mobile IP hardcoded: `http://192.168.3.11:8000` (personal use)
+
+### Offline Strategy
+- Flashcards fully functional offline (local SQLite)
+- Roleplay and voice features require network connection
+- Graceful degradation, no crashes
 
 ### Audio Pipeline (Hybrid Split)
 - **Local (on-device)**: Silero VAD (silence detection), audio recording buffers
 - **Backend**: pYIN pitch extraction, DTW alignment, tone scoring
 - **Cloud**: STT (Groq), TTS (Edge-TTS/Deepgram), LLM (DeepSeek)
-
-### Offline Strategy
-- When network drops: flashcard-only mode with local SRS
-- Roleplay and voice features require network
-- Graceful degradation, no crashes
 
 ### TTS Fallback
 - Edge-TTS is default (free, fast, good Mandarin)
@@ -105,34 +117,64 @@ tars/
 
 ## Database Schema (SQLModel)
 
-### Entity 1: Flashcard (Core Vocabulary Repository)
+### Entity 1: Deck (Flashcard Collection)
 
-Primary lexicon deck. Holds core dictionary definitions.
+User-created flashcard groups (e.g., "HSK 1", "Travel Phrases").
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `character` | VARCHAR | indexed | Chinese hanzi (e.g., "得", "咖啡") |
-| `pinyin` | VARCHAR | | Dictionary pronunciation (e.g., "de", "kāfēi") |
-| `meaning` | TEXT | | English translation or grammatical definition |
-| `grammar_type` | VARCHAR | indexed | Category: "particle", "verb", "noun", "adjective", etc. |
+| `name` | VARCHAR | indexed | Deck name |
+| `description` | TEXT | nullable | Optional description |
 | `created_at` | TIMESTAMP | | Creation timestamp |
 
-### Entity 2: User_Vocabulary_State (Mastery Tracker)
+### Entity 2: Flashcard (Cloze Deletion Cards)
+
+Cloze deletion cards: full sentence with blank, answer is missing word in hanzi.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Unique identifier |
+| `deck_id` | UUID | FK → Deck.id, indexed | Parent deck |
+| `card_type` | VARCHAR | default "cloze_deletion", indexed | Card type discriminator |
+| `sentence` | TEXT | | Full sentence with blank (e.g., "我___你") |
+| `sentence_pinyin` | TEXT | | Pinyin for full sentence |
+| `answer` | VARCHAR | | Missing word in hanzi (e.g., "爱") |
+| `answer_pinyin` | TEXT | | Pinyin for answer |
+| `context` | TEXT | | Example sentence or context |
+| `context_pinyin` | TEXT | | Pinyin for context |
+| `image_path` | VARCHAR | | Local image file path |
+| `audio_path` | VARCHAR | | Local audio file path |
+| `created_at` | TIMESTAMP | | Creation timestamp |
+
+### Entity 3: User_Vocabulary_State (Mastery Tracker)
 
 Known Vocabulary Profile and Difficulty Matrix. Tracks personal computational memory loop per card.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `flashcard_id` | UUID | FK -> Flashcard.id, unique, indexed | One state per card |
+| `flashcard_id` | UUID | FK → Flashcard.id, unique, indexed | One state per card |
 | `srs_interval` | INTEGER | default 0 | Days until next review |
 | `ease_factor` | FLOAT | default 2.5 | Internal SRS spacing modifier |
 | `total_reviews` | INTEGER | default 0 | Total interactions with this card |
 | `total_failures` | INTEGER | default 0 | Total misses or failed constraints |
+| `consecutive_failures` | INTEGER | default 0 | Current streak of failures |
 | `difficulty_score` | FLOAT | default 0.0, indexed | 0.0-1.0 difficulty rating |
 
-### Entity 3: Scenario (Roleplay Contexts)
+### Entity 4: Pending_Review (Offline Queue)
+
+Offline review queue. Stored locally when no network, pushed to backend on sync.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Unique identifier |
+| `flashcard_id` | UUID | FK → Flashcard.id, indexed | Reviewed card |
+| `is_correct` | BOOLEAN | | true=correct, false=hard |
+| `response_time_ms` | INTEGER | | Time to answer in milliseconds |
+| `created_at` | TIMESTAMP | | Review timestamp |
+
+### Entity 5: Scenario (Roleplay Contexts)
 
 Pre-defined roleplay scenario templates.
 
@@ -146,64 +188,64 @@ Pre-defined roleplay scenario templates.
 | `example_prompt` | VARCHAR | optional | Opening line for the scenario |
 | `created_at` | TIMESTAMP | | Creation timestamp |
 
-### Entity 4: Roleplay_Session (Conversation Hub)
+### Entity 6: Roleplay_Session (Conversation Hub)
 
 Tracks every roleplay session instance.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `scenario_id` | UUID | FK -> Scenario.id, indexed | Linked scenario |
+| `scenario_id` | UUID | FK → Scenario.id, indexed | Linked scenario |
 | `started_at` | TIMESTAMP | | Session start time |
 | `ended_at` | TIMESTAMP | nullable | Session end time |
 
-### Entity 5: Chat_Log (Interaction Feed)
+### Entity 7: Chat_Log (Interaction Feed)
 
 Line-by-line message saves. Crash-resilient session memory.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `session_id` | UUID | FK -> Roleplay_Session.id, indexed | Parent session |
+| `session_id` | UUID | FK → Roleplay_Session.id, indexed | Parent session |
 | `timestamp` | TIMESTAMP | | Message timestamp |
 | `sender` | VARCHAR | | "user" or "tars" |
 | `text_content` | TEXT | | Chinese message string |
 
-### Entity 6: Turn_Evaluation (Grammar Validation Log)
+### Entity 8: Turn_Evaluation (Grammar Validation Log)
 
 Per-turn validation analytics for grammar constraint checking.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `chat_log_id` | UUID | FK -> Chat_Log.id, indexed | Parent chat message |
-| `target_flashcard_id` | UUID | FK -> Flashcard.id, indexed | Forced token for this turn |
+| `chat_log_id` | UUID | FK → Chat_Log.id, indexed | Parent chat message |
+| `target_flashcard_id` | UUID | FK → Flashcard.id, indexed | Forced token for this turn |
 | `grammar_passed` | BOOLEAN | | Did user use target structure correctly? |
 
-### Entity 7: Shadowing_Media (Reference Audio)
+### Entity 9: Shadowing_Media (Reference Audio)
 
 Native reference audio paths and cached pitch contours.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `flashcard_id` | UUID | FK -> Flashcard.id, indexed | Linked vocabulary card |
+| `flashcard_id` | UUID | FK → Flashcard.id, indexed | Linked vocabulary card |
 | `audio_file_path` | VARCHAR | | Path to native audio file |
 | `native_pitch_contour` | TEXT | | JSON array of pre-calculated pitch floats |
 
-### Entity 8: Shadowing_Attempt (Phonetic Score Log)
+### Entity 10: Shadowing_Attempt (Phonetic Score Log)
 
 User's pitch match scores over time using DTW alignment.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Unique identifier |
-| `shadowing_media_id` | UUID | FK -> Shadowing_Media.id, indexed | Reference audio |
+| `shadowing_media_id` | UUID | FK → Shadowing_Media.id, indexed | Reference audio |
 | `pitch_match_score` | FLOAT | | 0.0-1.0 similarity score |
 | `user_pitch_curve` | TEXT | nullable | JSON array of user's pitch values |
 | `completed_at` | TIMESTAMP | | Attempt timestamp |
 
-### Entity 9: SyncLog (Sync Tracker)
+### Entity 11: SyncLog (Sync Tracker)
 
 Tracks synchronization between mobile and backend databases.
 
@@ -219,6 +261,7 @@ Tracks synchronization between mobile and backend databases.
 ### Entity Relationships
 
 ```
+Deck 1:N Flashcard
 Flashcard 1:1 User_Vocabulary_State
 Flashcard 1:N Shadowing_Media
 Flashcard 1:N Turn_Evaluation (via target_flashcard_id)
@@ -250,11 +293,13 @@ flowchart TD
     DB -->|Return next card| UI
 ```
 
-1. User marks card as "easy", "good", or "hard" on Frontend UI
-2. Pipeline Controller calculates new interval and difficulty metrics locally
-3. Metrics written immediately to Local Database (crash resilience)
-4. Next scheduled card pulled from database, screen updates
-5. Entire process takes < 10ms
+1. User views cloze deletion card with sentence blank
+2. User types missing word in hanzi
+3. Auto-rating: correct → "good", incorrect → "hard" (no manual buttons)
+4. Pipeline Controller calculates new interval and difficulty metrics locally
+5. Metrics written immediately to Local Database (crash resilience)
+6. Next scheduled card pulled from database, screen updates
+7. Entire process takes < 10ms
 
 ### Workflow B.1: Roleplay Session (Fluency + Grammar)
 

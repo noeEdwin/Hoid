@@ -19,6 +19,7 @@ from app.schemas.flashcard import (
 from app.schemas.review import (
     ReviewQueueItem,
     ReviewQueueResponse,
+    ReviewRating,
     ReviewResponse,
     ReviewSubmit,
 )
@@ -156,14 +157,16 @@ def delete_flashcard(
     return {"status": "deleted", "flashcard_id": str(flashcard_id)}
 
 
-@router.get("/flashcards/review", response_model=ReviewQueueResponse)
+@router.get("/decks/{deck_id}/review", response_model=ReviewQueueResponse)
 def get_review_queue(
+    deck_id: uuid.UUID,
     limit: int = Query(20, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> ReviewQueueResponse:
     statement = (
         select(UserVocabularyState, Flashcard)
         .join(Flashcard, UserVocabularyState.flashcard_id == Flashcard.id)
+        .where(Flashcard.deck_id == str(deck_id))
         .order_by(col(UserVocabularyState.difficulty_score).desc())
         .limit(limit)
     )
@@ -181,42 +184,46 @@ def get_review_queue(
             difficulty_score=state.difficulty_score,
             total_reviews=state.total_reviews,
             total_failures=state.total_failures,
+            consecutive_failures=state.consecutive_failures,
         )
         for state, flashcard in results
     ]
     return ReviewQueueResponse(queue=queue, total_pending=len(queue))
 
 
-@router.post("/flashcards/review/submit", response_model=ReviewResponse)
+@router.post("/flashcards/{flashcard_id}/review", response_model=ReviewResponse)
 def submit_review(
+    flashcard_id: uuid.UUID,
     data: ReviewSubmit,
     session: Session = Depends(get_session),
 ) -> ReviewResponse:
     state = session.exec(
         select(UserVocabularyState).where(
-            UserVocabularyState.flashcard_id == str(data.flashcard_id)
+            UserVocabularyState.flashcard_id == str(flashcard_id)
         )
     ).first()
     if not state:
-        state = UserVocabularyState(flashcard_id=str(data.flashcard_id))
+        state = UserVocabularyState(flashcard_id=str(flashcard_id))
         session.add(state)
         session.flush()
+
+    rating = ReviewRating.good if data.is_correct else ReviewRating.hard
 
     state.srs_interval = calculate_new_interval(
         state.srs_interval,
         state.ease_factor,
         state.difficulty_score,
-        data.review_rating,
+        rating,
     )
-    state.ease_factor = calculate_new_ease(state.ease_factor, data.review_rating)
+    state.ease_factor = calculate_new_ease(state.ease_factor, rating)
     state.difficulty_score = calculate_new_difficulty(
         state.difficulty_score,
-        data.review_rating,
+        rating,
         data.response_time_ms,
         state.consecutive_failures,
     )
     state.total_reviews += 1
-    if data.review_rating.value == "hard":
+    if not data.is_correct:
         state.total_failures += 1
         state.consecutive_failures += 1
     else:
@@ -228,7 +235,7 @@ def submit_review(
 
     return ReviewResponse(
         status="success",
-        flashcard_id=data.flashcard_id,
+        flashcard_id=str(flashcard_id),
         new_srs_interval=state.srs_interval,
         new_difficulty_score=state.difficulty_score,
     )

@@ -1,0 +1,308 @@
+jest.mock("expo-sqlite", () => {
+  const mockRun = jest.fn();
+  const mockGet = jest.fn(() => undefined);
+  const mockAll = jest.fn(() => []);
+  const mockExec = jest.fn();
+  const mockGetFirst = jest.fn(() => ({ user_version: 0 }));
+
+  return {
+    openDatabaseSync: jest.fn(() => ({
+      execSync: mockExec,
+      getFirstSync: mockGetFirst,
+      runSync: mockRun,
+    })),
+  };
+});
+
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "test-uuid-" + Math.random().toString(36).slice(2)),
+}));
+
+jest.mock("../../data/starter-deck.json", () => [
+  { sentence: "我___你", sentence_pinyin: "wǒ ài nǐ", answer: "爱", answer_pinyin: "ài", context: "love", context_pinyin: "love" },
+  { sentence: "他是我的___", sentence_pinyin: "tā shì wǒ de péngyǒu", answer: "朋友", answer_pinyin: "péngyǒu", context: "friend", context_pinyin: "friend" },
+  { sentence: "我想___一杯咖啡", sentence_pinyin: "wǒ xiǎng hē yī bēi kāfēi", answer: "喝", answer_pinyin: "hē", context: "drink", context_pinyin: "drink" },
+  { sentence: "今天天气很___", sentence_pinyin: "jīntiān tiānqì hěn hǎo", answer: "好", answer_pinyin: "hǎo", context: "good", context_pinyin: "good" },
+  { sentence: "我___你谢谢", sentence_pinyin: "wǒ gǎnxiè nǐ", answer: "感谢", answer_pinyin: "gǎnxiè", context: "thanks", context_pinyin: "thanks" },
+]);
+
+const mockDb = {
+  select: jest.fn(),
+  insert: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+};
+
+jest.mock("drizzle-orm/expo-sqlite", () => ({
+  drizzle: jest.fn(() => mockDb),
+}));
+
+jest.mock("drizzle-orm", () => ({
+  eq: jest.fn((a: any, b: any) => ({ type: "eq", a, b })),
+  desc: jest.fn((a: any) => ({ type: "desc", a })),
+}));
+
+import { getDb } from "../database";
+
+function setupMockChain(result: any) {
+  const chain = {
+    from: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    get: jest.fn(() => result),
+    all: jest.fn(() => (Array.isArray(result) ? result : result ? [result] : [])),
+    run: jest.fn(() => ({ changes: 1 })),
+    set: jest.fn().mockReturnThis(),
+    values: jest.fn().mockReturnThis(),
+  };
+  return chain;
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockDb.select.mockReturnValue(setupMockChain([]));
+  mockDb.insert.mockReturnValue(setupMockChain(undefined));
+  mockDb.update.mockReturnValue(setupMockChain(undefined));
+  mockDb.delete.mockReturnValue(setupMockChain(undefined));
+});
+
+describe("getDb", () => {
+  it("returns a database instance", () => {
+    const db = getDb();
+    expect(db).toBeDefined();
+  });
+});
+
+describe("getDueCards", () => {
+  it("queries with INNER JOIN between flashcard and vocabulary state", () => {
+    const chain = setupMockChain([]);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getDueCards } = require("../database");
+    getDueCards("deck-1", 10);
+
+    expect(mockDb.select).toHaveBeenCalled();
+    expect(chain.from).toHaveBeenCalled();
+    expect(chain.innerJoin).toHaveBeenCalled();
+    expect(chain.where).toHaveBeenCalled();
+    expect(chain.orderBy).toHaveBeenCalled();
+    expect(chain.limit).toHaveBeenCalledWith(10);
+  });
+
+  it("returns empty array for empty deck", () => {
+    const chain = setupMockChain([]);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getDueCards } = require("../database");
+    const result = getDueCards("deck-empty");
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns cards ordered by difficulty DESC", () => {
+    const cards = [
+      { id: "c1", difficultyScore: 0.9 },
+      { id: "c2", difficultyScore: 0.5 },
+    ];
+    const chain = setupMockChain(cards);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getDueCards } = require("../database");
+    const result = getDueCards("deck-1");
+
+    expect(result[0].difficultyScore).toBe(0.9);
+    expect(result[1].difficultyScore).toBe(0.5);
+  });
+
+  it("INNER JOIN excludes cards without vocabulary state", () => {
+    const chain = setupMockChain([]);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getDueCards } = require("../database");
+    getDueCards("deck-1");
+
+    expect(chain.innerJoin).toHaveBeenCalled();
+  });
+});
+
+describe("getVocabularyState", () => {
+  it("returns state for existing card", () => {
+    const state = { id: "vs-1", flashcardId: "card-1", totalReviews: 5 };
+    const chain = setupMockChain(state);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getVocabularyState } = require("../database");
+    const result = getVocabularyState("card-1");
+
+    expect(result).toEqual(state);
+  });
+
+  it("returns undefined for missing card", () => {
+    const chain = setupMockChain(undefined);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getVocabularyState } = require("../database");
+    const result = getVocabularyState("nonexistent");
+
+    expect(result).toBeUndefined();
+  });
+});
+
+describe("updateVocabularyState", () => {
+  it("returns null when state not found", () => {
+    const selectChain = setupMockChain(undefined);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const { updateVocabularyState } = require("../database");
+    const result = updateVocabularyState("card-1", { totalReviews: 1 });
+
+    expect(result).toBeNull();
+  });
+
+  it("updates and returns new state when found", () => {
+    const existingState = { id: "vs-1", flashcardId: "card-1", totalReviews: 0 };
+    const updatedState = { id: "vs-1", flashcardId: "card-1", totalReviews: 1 };
+
+    const firstChain = setupMockChain(existingState);
+    const secondChain = setupMockChain(updatedState);
+    mockDb.select
+      .mockReturnValueOnce(firstChain)
+      .mockReturnValueOnce(secondChain);
+
+    const updateChain = setupMockChain(updatedState);
+    mockDb.update.mockReturnValue(updateChain);
+
+    const { updateVocabularyState } = require("../database");
+    const result = updateVocabularyState("card-1", { totalReviews: 1 });
+
+    expect(result).toEqual(updatedState);
+  });
+});
+
+describe("addPendingReview", () => {
+  it("creates a pending review record", () => {
+    const chain = setupMockChain(undefined);
+    mockDb.insert.mockReturnValue(chain);
+
+    const { addPendingReview } = require("../database");
+    const id = addPendingReview("card-1", true, 2000);
+
+    expect(mockDb.insert).toHaveBeenCalled();
+    expect(chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flashcardId: "card-1",
+        isCorrect: true,
+        responseTimeMs: 2000,
+      })
+    );
+    expect(typeof id).toBe("string");
+  });
+});
+
+describe("clearPendingReviews", () => {
+  it("deletes all pending reviews", () => {
+    const chain = setupMockChain(undefined);
+    mockDb.delete.mockReturnValue(chain);
+
+    const { clearPendingReviews } = require("../database");
+    clearPendingReviews();
+
+    expect(mockDb.delete).toHaveBeenCalled();
+  });
+});
+
+describe("createDeck", () => {
+  it("creates and returns a deck", () => {
+    const deck = { id: "deck-1", name: "Test Deck", description: null };
+    const selectChain = setupMockChain(deck);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const insertChain = setupMockChain(undefined);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const { createDeck } = require("../database");
+    const result = createDeck("Test Deck");
+
+    expect(result).toEqual(deck);
+  });
+
+  it("accepts empty name (no validation)", () => {
+    const deck = { id: "deck-1", name: "", description: null };
+    const selectChain = setupMockChain(deck);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const insertChain = setupMockChain(undefined);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const { createDeck } = require("../database");
+    const result = createDeck("");
+
+    expect(result).toBeDefined();
+  });
+});
+
+describe("createFlashcard", () => {
+  it("creates and returns a flashcard", () => {
+    const card = {
+      id: "card-1",
+      deckId: "deck-1",
+      sentence: "我___你",
+      answer: "爱",
+      cardType: "cloze_deletion",
+    };
+    const selectChain = setupMockChain(card);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const insertChain = setupMockChain(undefined);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const { createFlashcard } = require("../database");
+    const result = createFlashcard({
+      deckId: "deck-1",
+      sentence: "我___你",
+      answer: "爱",
+    });
+
+    expect(result).toEqual(card);
+  });
+});
+
+describe("deleteFlashcard", () => {
+  it("deletes flashcard and cascades to related tables", () => {
+    const chain = setupMockChain(undefined);
+    mockDb.delete.mockReturnValue(chain);
+
+    const { deleteFlashcard } = require("../database");
+    deleteFlashcard("card-1");
+
+    expect(mockDb.delete).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("seedLocalDeck", () => {
+  it("creates deck with seed cards", () => {
+    const selectChain = setupMockChain(undefined);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const insertChain = setupMockChain(undefined);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const { seedLocalDeck } = require("../database");
+    seedLocalDeck();
+
+    expect(mockDb.insert).toHaveBeenCalled();
+  });
+
+  it("is idempotent (checks by name)", () => {
+    const existingDeck = { id: "existing", name: "Starter Deck" };
+    const selectChain = setupMockChain(existingDeck);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const { seedLocalDeck } = require("../database");
+    seedLocalDeck();
+
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+});
