@@ -40,7 +40,7 @@ export default function DeckCard({
           </Text>
         </View>
         <View style={styles.button}>
-          <Text style={styles.buttonText}>Start Review</Text>
+          <Text style={styles.buttonText}>View Deck</Text>
         </View>
       </LinearGradient>
     </Pressable>

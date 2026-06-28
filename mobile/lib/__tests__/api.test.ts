@@ -7,6 +7,13 @@ import {
   fetchReviewQueue,
   submitReview,
   fetchDifficultTokens,
+  pushSync,
+  pullSync,
+  createDeckApi,
+  deleteDeckApi,
+  createFlashcardApi,
+  updateFlashcardApi,
+  deleteFlashcardApi,
 } from "../api";
 
 beforeEach(() => {
@@ -58,13 +65,13 @@ describe("fetchDecks", () => {
 });
 
 describe("fetchFlashcards", () => {
-  it("interpolates deckId in URL", async () => {
+  it("sends deck_id as query param", async () => {
     mockJsonResponse({ flashcards: [], total: 0 });
 
     await fetchFlashcards("deck-123");
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "http://192.168.3.11:8000/api/decks/deck-123/flashcards",
+      "http://192.168.3.11:8000/api/flashcards?deck_id=deck-123",
       expect.anything()
     );
   });
@@ -202,5 +209,185 @@ describe("error handling", () => {
     mockJsonResponse({ detail: "Validation error" }, false, 422);
 
     await expect(submitReview("f1", true, 1000)).rejects.toThrow("422");
+  });
+});
+
+describe("pushSync", () => {
+  it("sends POST to /api/sync/push with body", async () => {
+    mockJsonResponse({
+      decks_upserted: 1,
+      flashcards_upserted: 5,
+      states_upserted: 5,
+      reviews_processed: 3,
+    });
+
+    const result = await pushSync({
+      decks: [{ id: "d1", name: "HSK 1", description: null }],
+      flashcards: [],
+      vocabulary_states: [],
+      pending_reviews: [],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/sync/push",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          decks: [{ id: "d1", name: "HSK 1", description: null }],
+          flashcards: [],
+          vocabulary_states: [],
+          pending_reviews: [],
+        }),
+      })
+    );
+    expect(result.decks_upserted).toBe(1);
+    expect(result.reviews_processed).toBe(3);
+  });
+});
+
+describe("pullSync", () => {
+  it("sends GET to /api/sync/pull", async () => {
+    mockJsonResponse({
+      decks: [],
+      flashcards: [],
+      vocabulary_states: [],
+      synced_at: "2026-01-01T00:00:00Z",
+    });
+
+    await pullSync();
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/sync/pull",
+      expect.anything()
+    );
+  });
+
+  it("includes since query param when provided", async () => {
+    mockJsonResponse({
+      decks: [],
+      flashcards: [],
+      vocabulary_states: [],
+      synced_at: "2026-01-01T00:00:00Z",
+    });
+
+    await pullSync("2026-01-01T00:00:00Z");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/sync/pull?since=2026-01-01T00%3A00%3A00Z",
+      expect.anything()
+    );
+  });
+
+  it("returns pull response data", async () => {
+    mockJsonResponse({
+      decks: [{ id: "d1", name: "HSK 1", description: null }],
+      flashcards: [{ id: "f1", deck_id: "d1", sentence: "我___你" }],
+      vocabulary_states: [{ flashcard_id: "f1", difficulty_score: 0.5 }],
+      synced_at: "2026-01-01T00:00:00Z",
+    });
+
+    const result = await pullSync();
+
+    expect(result.decks).toHaveLength(1);
+    expect(result.flashcards).toHaveLength(1);
+    expect(result.vocabulary_states).toHaveLength(1);
+  });
+});
+
+describe("createDeckApi", () => {
+  it("sends POST with name and description", async () => {
+    mockJsonResponse({ id: "d1", name: "HSK 1", description: "Beginner", created_at: "2026-01-01" });
+
+    const result = await createDeckApi("HSK 1", "Beginner");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/decks",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ name: "HSK 1", description: "Beginner" }),
+      })
+    );
+    expect(result.id).toBe("d1");
+  });
+
+  it("sends null description when omitted", async () => {
+    mockJsonResponse({ id: "d2", name: "Travel", description: null, created_at: "2026-01-01" });
+
+    await createDeckApi("Travel");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/decks",
+      expect.objectContaining({
+        body: JSON.stringify({ name: "Travel", description: null }),
+      })
+    );
+  });
+});
+
+describe("deleteDeckApi", () => {
+  it("sends DELETE to /api/decks/{id}", async () => {
+    mockJsonResponse({ status: "deleted", deck_id: "d1" });
+
+    await deleteDeckApi("d1");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/decks/d1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+});
+
+describe("createFlashcardApi", () => {
+  it("sends POST with flashcard data", async () => {
+    mockJsonResponse({ id: "f1", deck_id: "d1", sentence: "我___你", answer: "爱" });
+
+    const result = await createFlashcardApi({
+      deck_id: "d1",
+      sentence: "我___你",
+      answer: "爱",
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/flashcards",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          card_type: "cloze_deletion",
+          deck_id: "d1",
+          sentence: "我___你",
+          answer: "爱",
+        }),
+      })
+    );
+    expect(result.id).toBe("f1");
+  });
+});
+
+describe("updateFlashcardApi", () => {
+  it("sends PUT with updated fields", async () => {
+    mockJsonResponse({ id: "f1", sentence: "Updated" });
+
+    await updateFlashcardApi("f1", { sentence: "Updated" });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/flashcards/f1",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ sentence: "Updated" }),
+      })
+    );
+  });
+});
+
+describe("deleteFlashcardApi", () => {
+  it("sends DELETE to /api/flashcards/{id}", async () => {
+    mockJsonResponse({ status: "deleted", flashcard_id: "f1" });
+
+    await deleteFlashcardApi("f1");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/flashcards/f1",
+      expect.objectContaining({ method: "DELETE" })
+    );
   });
 });

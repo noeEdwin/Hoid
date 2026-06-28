@@ -12,14 +12,14 @@ class TestDifficultyEndpoint:
     def test_returns_top_n(self, client: TestClient, create_flashcard) -> None:
         fc1 = create_flashcard(sentence="我___你", answer="爱")
         fc2 = create_flashcard(sentence="他是我的___", answer="朋友")
-        client.post("/api/flashcards/review/submit", json={
+        client.post(f"/api/flashcards/{fc1.id}/review", json={
             "flashcard_id": str(fc1.id),
-            "review_rating": "easy",
+            "is_correct": True,
             "response_time_ms": 1000,
         })
-        client.post("/api/flashcards/review/submit", json={
+        client.post(f"/api/flashcards/{fc2.id}/review", json={
             "flashcard_id": str(fc2.id),
-            "review_rating": "hard",
+            "is_correct": False,
             "response_time_ms": 5000,
         })
         r = client.get("/api/vocabulary/difficulty?n=1")
@@ -30,9 +30,9 @@ class TestDifficultyEndpoint:
     def test_respects_n_parameter(self, client: TestClient, create_flashcard) -> None:
         for i in range(5):
             fc = create_flashcard(sentence=f"句子{i}", answer=f"词{i}")
-            client.post("/api/flashcards/review/submit", json={
+            client.post(f"/api/flashcards/{fc.id}/review", json={
                 "flashcard_id": str(fc.id),
-                "review_rating": "hard",
+                "is_correct": False,
                 "response_time_ms": 3000,
             })
         r = client.get("/api/vocabulary/difficulty?n=3")
@@ -49,16 +49,15 @@ class TestProfileEndpoint:
     def test_filters_by_threshold(self, client: TestClient, create_flashcard) -> None:
         fc1 = create_flashcard(sentence="我___你", answer="爱")
         fc2 = create_flashcard(sentence="他是我的___", answer="朋友")
-        fc3 = create_flashcard(sentence="我想___咖啡", answer="喝")
-        client.post("/api/flashcards/review/submit", json={
+        client.post(f"/api/flashcards/{fc1.id}/review", json={
             "flashcard_id": str(fc1.id),
-            "review_rating": "easy",
+            "is_correct": True,
             "response_time_ms": 1000,
         })
         for _ in range(5):
-            client.post("/api/flashcards/review/submit", json={
+            client.post(f"/api/flashcards/{fc2.id}/review", json={
                 "flashcard_id": str(fc2.id),
-                "review_rating": "hard",
+                "is_correct": False,
                 "response_time_ms": 5000,
             })
         r = client.get("/api/vocabulary/profile?threshold=0.5")

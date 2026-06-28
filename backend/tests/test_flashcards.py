@@ -96,9 +96,9 @@ class TestDeleteFlashcard:
         self, client: TestClient, create_flashcard, db_session: Session
     ) -> None:
         fc = create_flashcard()
-        client.post("/api/flashcards/review/submit", json={
+        client.post(f"/api/flashcards/{fc.id}/review", json={
             "flashcard_id": str(fc.id),
-            "review_rating": "hard",
+            "is_correct": False,
             "response_time_ms": 3000,
         })
         client.delete(f"/api/flashcards/{fc.id}")

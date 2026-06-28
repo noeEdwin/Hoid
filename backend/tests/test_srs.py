@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from app.schemas.review import ReviewRating
 from app.services.srs import (
+    MASTERY_THRESHOLD,
+    calculate_mastery_correct,
     calculate_new_difficulty,
     calculate_new_ease,
     calculate_new_interval,
@@ -29,10 +31,6 @@ class TestCalculateNewInterval:
         result = calculate_new_interval(10, 2.5, 0.0, ReviewRating.hard)
         assert result == 1
 
-    def test_easy_graduates_immediately_from_learning(self) -> None:
-        result = calculate_new_interval(0, 2.5, 0.0, ReviewRating.easy)
-        assert result == 7
-
     def test_difficulty_suppresses_interval(self) -> None:
         no_diff = calculate_new_interval(10, 2.5, 0.0, ReviewRating.good)
         with_diff = calculate_new_interval(10, 2.5, 0.5, ReviewRating.good)
@@ -42,19 +40,35 @@ class TestCalculateNewInterval:
         result = calculate_new_interval(1, 1.3, 1.0, ReviewRating.good)
         assert result >= 1
 
+    def test_mastered_card_grows_interval_normally(self) -> None:
+        result = calculate_new_interval(
+            7, 2.5, 0.0, ReviewRating.good, consecutive_correct=MASTERY_THRESHOLD
+        )
+        assert result == 17
+
+    def test_mastered_card_hard_resets_to_learning(self) -> None:
+        result = calculate_new_interval(
+            42, 2.5, 0.0, ReviewRating.hard, consecutive_correct=MASTERY_THRESHOLD
+        )
+        assert result == 1
+
 
 class TestCalculateNewEase:
-    def test_easy_increases_ease(self) -> None:
-        result = calculate_new_ease(2.5, ReviewRating.easy)
-        assert result == 2.65
-
     def test_hard_decreases_ease(self) -> None:
         result = calculate_new_ease(2.5, ReviewRating.hard)
         assert result == 2.3
 
-    def test_good_leaves_ease_unchanged(self) -> None:
+    def test_good_increases_ease(self) -> None:
         result = calculate_new_ease(2.5, ReviewRating.good)
-        assert result == 2.5
+        assert result == 2.55
+
+    def test_easy_ease_cannot_exceed_3(self) -> None:
+        result = calculate_new_ease(2.98, ReviewRating.good)
+        assert result <= 3.0
+
+    def test_hard_ease_cannot_go_below_1_3(self) -> None:
+        result = calculate_new_ease(1.3, ReviewRating.hard)
+        assert result == 1.3
 
 
 class TestCalculateNewDifficulty:
@@ -71,6 +85,24 @@ class TestCalculateNewDifficulty:
         result = calculate_new_difficulty(0.5, ReviewRating.good, 2000, 0)
         assert result == 0.5
 
-    def test_easy_decreases_difficulty(self) -> None:
-        result = calculate_new_difficulty(0.5, ReviewRating.easy, 2000, 0)
-        assert result == 0.45
+    def test_slow_good_increases_difficulty(self) -> None:
+        result = calculate_new_difficulty(0.5, ReviewRating.good, 12000, 0)
+        assert result > 0.5
+
+
+class TestMasteryCorrect:
+    def test_correct_increments(self) -> None:
+        result = calculate_mastery_correct(0, ReviewRating.good)
+        assert result == 1
+
+    def test_correct_reaches_threshold(self) -> None:
+        result = calculate_mastery_correct(MASTERY_THRESHOLD - 1, ReviewRating.good)
+        assert result == MASTERY_THRESHOLD
+
+    def test_hard_resets_to_zero(self) -> None:
+        result = calculate_mastery_correct(5, ReviewRating.hard)
+        assert result == 0
+
+    def test_hard_from_zero_stays_zero(self) -> None:
+        result = calculate_mastery_correct(0, ReviewRating.hard)
+        assert result == 0

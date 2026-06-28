@@ -35,6 +35,7 @@ export const userVocabularyState = sqliteTable("user_vocabulary_state", {
   totalReviews: integer("total_reviews").default(0),
   totalFailures: integer("total_failures").default(0),
   consecutiveFailures: integer("consecutive_failures").default(0),
+  consecutiveCorrect: integer("consecutive_correct").default(0),
   difficultyScore: real("difficulty_score").default(0.0),
 });
 

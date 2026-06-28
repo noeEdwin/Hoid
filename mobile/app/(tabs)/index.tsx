@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ScrollView, View, Text } from "react-native";
+import { ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -7,7 +7,6 @@ import UserHeader from "../../components/UserHeader";
 import DeckCarousel from "../../components/DeckCarousel";
 import GlassDock from "../../components/GlassDock";
 import { useVocabularyStore } from "../../stores/useVocabularyStore";
-import { initDatabase, seedLocalDeck } from "../../lib/database";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -16,14 +15,11 @@ export default function DashboardScreen() {
   const loadLocalData = useVocabularyStore((s) => s.loadLocalData);
 
   useEffect(() => {
-    initDatabase().then(() => {
-      seedLocalDeck();
-      loadLocalData();
-    });
+    loadLocalData();
   }, []);
 
   const handleStartReview = (deckId: string) => {
-    router.push({ pathname: "/review", params: { deckId } });
+    router.push({ pathname: "/deck/[id]", params: { id: deckId } });
   };
 
   return (
@@ -35,10 +31,16 @@ export default function DashboardScreen() {
       >
         <UserHeader totalCards={totalCards} streak={3} />
 
-        <View className="px-6 mb-3">
+        <View className="flex-row items-center justify-between px-6 mb-3">
           <Text className="text-xl font-medium text-neutral-900">
             Your Decks
           </Text>
+          <Pressable
+            onPress={() => router.push("/modal/create-deck")}
+            className="bg-primary rounded-full w-9 h-9 items-center justify-center"
+          >
+            <Text className="text-white text-xl leading-none">+</Text>
+          </Pressable>
         </View>
 
         {decks.length > 0 ? (
@@ -46,7 +48,7 @@ export default function DashboardScreen() {
         ) : (
           <View className="px-6 py-12 items-center">
             <Text className="text-neutral-600 text-sm">
-              No decks yet. Sync with backend to get started.
+              No decks yet. Create one or sync with backend.
             </Text>
           </View>
         )}

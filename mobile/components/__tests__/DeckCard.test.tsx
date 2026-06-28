@@ -63,7 +63,7 @@ describe("DeckCard", () => {
 
   it("calls onStartReview with deckId when button pressed", () => {
     const { getByText } = render(<DeckCard {...defaultProps} />);
-    fireEvent.press(getByText("Start Review"));
+    fireEvent.press(getByText("View Deck"));
 
     expect(defaultProps.onStartReview).toHaveBeenCalledWith("deck-1");
   });

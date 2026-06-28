@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, col, select
+from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.models.flashcard import Deck, Flashcard, UserVocabularyState
@@ -24,6 +24,8 @@ from app.schemas.review import (
     ReviewSubmit,
 )
 from app.services.srs import (
+    MASTERY_THRESHOLD,
+    calculate_mastery_correct,
     calculate_new_difficulty,
     calculate_new_ease,
     calculate_new_interval,
@@ -77,7 +79,7 @@ def delete_deck(
 
 @router.get("/flashcards", response_model=FlashcardListResponse)
 def list_flashcards(
-    deck_id: uuid.UUID | None = Query(None),
+    deck_id: str | None = Query(None),
     search: str | None = Query(None),
     session: Session = Depends(get_session),
 ) -> FlashcardListResponse:
@@ -163,31 +165,43 @@ def get_review_queue(
     limit: int = Query(20, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> ReviewQueueResponse:
-    statement = (
-        select(UserVocabularyState, Flashcard)
-        .join(Flashcard, UserVocabularyState.flashcard_id == Flashcard.id)
-        .where(Flashcard.deck_id == str(deck_id))
-        .order_by(col(UserVocabularyState.difficulty_score).desc())
-        .limit(limit)
+    from sqlalchemy import func, outerjoin
+
+    flashcards = list(
+        session.exec(
+            select(Flashcard).where(Flashcard.deck_id == str(deck_id))
+        ).all()
     )
-    results = list(session.exec(statement).all())
-    queue = [
-        ReviewQueueItem(
-            flashcard_id=state.flashcard_id,
-            sentence=flashcard.sentence or "",
-            sentence_pinyin=flashcard.sentence_pinyin or "",
-            answer=flashcard.answer or "",
-            answer_pinyin=flashcard.answer_pinyin or "",
-            card_type=flashcard.card_type,
-            srs_interval=state.srs_interval,
-            ease_factor=state.ease_factor,
-            difficulty_score=state.difficulty_score,
-            total_reviews=state.total_reviews,
-            total_failures=state.total_failures,
-            consecutive_failures=state.consecutive_failures,
+
+    queue = []
+    for flashcard in flashcards:
+        state = session.exec(
+            select(UserVocabularyState).where(
+                UserVocabularyState.flashcard_id == flashcard.id
+            )
+        ).first()
+
+        queue.append(
+            ReviewQueueItem(
+                flashcard_id=flashcard.id,
+                sentence=flashcard.sentence or "",
+                sentence_pinyin=flashcard.sentence_pinyin or "",
+                answer=flashcard.answer or "",
+                answer_pinyin=flashcard.answer_pinyin or "",
+                card_type=flashcard.card_type,
+                srs_interval=state.srs_interval if state else 0,
+                ease_factor=state.ease_factor if state else 2.5,
+                difficulty_score=state.difficulty_score if state else 0.0,
+                total_reviews=state.total_reviews if state else 0,
+                total_failures=state.total_failures if state else 0,
+                consecutive_failures=state.consecutive_failures if state else 0,
+                consecutive_correct=state.consecutive_correct if state else 0,
+            )
         )
-        for state, flashcard in results
-    ]
+
+    queue.sort(key=lambda item: item.difficulty_score, reverse=True)
+    queue = queue[:limit]
+
     return ReviewQueueResponse(queue=queue, total_pending=len(queue))
 
 
@@ -209,11 +223,16 @@ def submit_review(
 
     rating = ReviewRating.good if data.is_correct else ReviewRating.hard
 
+    state.consecutive_correct = calculate_mastery_correct(
+        state.consecutive_correct, rating
+    )
+
     state.srs_interval = calculate_new_interval(
         state.srs_interval,
         state.ease_factor,
         state.difficulty_score,
         rating,
+        state.consecutive_correct,
     )
     state.ease_factor = calculate_new_ease(state.ease_factor, rating)
     state.difficulty_score = calculate_new_difficulty(
@@ -238,4 +257,5 @@ def submit_review(
         flashcard_id=str(flashcard_id),
         new_srs_interval=state.srs_interval,
         new_difficulty_score=state.difficulty_score,
+        mastered=state.consecutive_correct >= MASTERY_THRESHOLD,
     )

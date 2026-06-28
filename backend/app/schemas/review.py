@@ -21,6 +21,7 @@ class ReviewResponse(BaseModel):
     flashcard_id: str
     new_srs_interval: int
     new_difficulty_score: float
+    mastered: bool = False
 
 
 class ReviewQueueItem(BaseModel):
@@ -36,6 +37,7 @@ class ReviewQueueItem(BaseModel):
     total_reviews: int
     total_failures: int
     consecutive_failures: int
+    consecutive_correct: int = 0
 
 
 class ReviewQueueResponse(BaseModel):

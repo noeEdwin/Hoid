@@ -38,6 +38,7 @@ function makeCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
     totalReviews: 0,
     totalFailures: 0,
     consecutiveFailures: 0,
+    consecutiveCorrect: 0,
     ...overrides,
   };
 }
@@ -51,6 +52,7 @@ function makeVocabState(overrides: Record<string, any> = {}) {
     totalReviews: 0,
     totalFailures: 0,
     consecutiveFailures: 0,
+    consecutiveCorrect: 0,
     difficultyScore: 0.5,
     ...overrides,
   };
@@ -573,5 +575,86 @@ describe("consecutive failure streak patterns", () => {
     expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveFailures).toBe(1);
     expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveFailures).toBe(0);
     expect(mockUpdateVocabularyState.mock.calls[3][1].consecutiveFailures).toBe(1);
+  });
+});
+
+describe("mastery tracking (consecutiveCorrect)", () => {
+  beforeEach(() => {
+    const cards = [makeCard({ id: "c1" })];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+    jest.clearAllMocks();
+  });
+
+  it("correct answer: increments consecutiveCorrect", () => {
+    mockGetVocabularyState.mockReturnValue(
+      makeVocabState({ consecutiveCorrect: 0 }) as any
+    );
+
+    useReviewStore.getState().submitAnswer(true);
+
+    expect(mockUpdateVocabularyState).toHaveBeenCalledWith(
+      "c1",
+      expect.objectContaining({ consecutiveCorrect: 1 })
+    );
+  });
+
+  it("3 correct in a row: consecutiveCorrect reaches 3", () => {
+    mockGetVocabularyState
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 2 }) as any);
+
+    useReviewStore.getState().submitAnswer(true);
+    useReviewStore.getState().submitAnswer(true);
+    useReviewStore.getState().submitAnswer(true);
+
+    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveCorrect).toBe(3);
+  });
+
+  it("incorrect answer: resets consecutiveCorrect to 0", () => {
+    mockGetVocabularyState.mockReturnValue(
+      makeVocabState({ consecutiveCorrect: 2 }) as any
+    );
+
+    useReviewStore.getState().submitAnswer(false);
+
+    expect(mockUpdateVocabularyState).toHaveBeenCalledWith(
+      "c1",
+      expect.objectContaining({ consecutiveCorrect: 0 })
+    );
+  });
+
+  it("2 correct then 1 incorrect: streak resets", () => {
+    mockGetVocabularyState
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 2 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 2 }) as any);
+
+    useReviewStore.getState().submitAnswer(true);
+    useReviewStore.getState().submitAnswer(true);
+    useReviewStore.getState().submitAnswer(false);
+
+    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveCorrect).toBe(2);
+    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveCorrect).toBe(3);
+    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveCorrect).toBe(0);
+  });
+
+  it("alternating: consecutiveCorrect oscillates 1->0->1->0", () => {
+    mockGetVocabularyState
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any);
+
+    useReviewStore.getState().submitAnswer(true);
+    useReviewStore.getState().submitAnswer(false);
+    useReviewStore.getState().submitAnswer(true);
+    useReviewStore.getState().submitAnswer(false);
+
+    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveCorrect).toBe(1);
+    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveCorrect).toBe(0);
+    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveCorrect).toBe(1);
+    expect(mockUpdateVocabularyState.mock.calls[3][1].consecutiveCorrect).toBe(0);
   });
 });

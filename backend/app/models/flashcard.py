@@ -70,6 +70,7 @@ class UserVocabularyState(SQLModel, table=True):
     total_reviews: int = Field(default=0)
     total_failures: int = Field(default=0)
     consecutive_failures: int = Field(default=0)
+    consecutive_correct: int = Field(default=0)
     difficulty_score: float = Field(default=0.0, index=True)
 
     flashcard: Optional[Flashcard] = Relationship(back_populates="vocabulary_state")

@@ -19,6 +19,7 @@ export interface ReviewCard {
   totalReviews: number;
   totalFailures: number;
   consecutiveFailures: number;
+  consecutiveCorrect: number;
 }
 
 interface ReviewState {
@@ -57,6 +58,7 @@ function mapLocalItem(item: any, deckId: string): ReviewCard {
     totalReviews: item.totalReviews ?? 0,
     totalFailures: item.totalFailures ?? 0,
     consecutiveFailures: item.consecutiveFailures ?? 0,
+    consecutiveCorrect: item.consecutiveCorrect ?? 0,
   };
 }
 
@@ -97,11 +99,15 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       const newTotalFailures = isCorrect
         ? (state.totalFailures ?? 0)
         : (state.totalFailures ?? 0) + 1;
+      const newConsecutiveCorrect = isCorrect
+        ? (state.consecutiveCorrect ?? 0) + 1
+        : 0;
 
       updateVocabularyState(card.id, {
         totalReviews: (state.totalReviews ?? 0) + 1,
         totalFailures: newTotalFailures,
         consecutiveFailures: newConsecutive,
+        consecutiveCorrect: newConsecutiveCorrect,
       });
     }
 

@@ -11,24 +11,26 @@ import {
 } from "./schema";
 
 const DB_NAME = "tars.db";
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 
+let _sqlite: ReturnType<typeof SQLite.openDatabaseSync> | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
+let _initialized = false;
 
 function uuid(): string {
   return crypto.randomUUID();
 }
 
-export function getDb() {
-  if (!_db) {
-    const sqlite = SQLite.openDatabaseSync(DB_NAME);
-    _db = drizzle(sqlite);
+function getSqlite(): ReturnType<typeof SQLite.openDatabaseSync> {
+  if (!_sqlite) {
+    _sqlite = SQLite.openDatabaseSync(DB_NAME);
   }
-  return _db;
+  return _sqlite;
 }
 
-export async function initDatabase(): Promise<void> {
-  const sqlite = SQLite.openDatabaseSync(DB_NAME);
+function ensureInitialized(): void {
+  if (_initialized) return;
+  const sqlite = getSqlite();
 
   const versionRow = sqlite.getFirstSync<{ user_version: number }>(
     "PRAGMA user_version"
@@ -77,6 +79,7 @@ export async function initDatabase(): Promise<void> {
         total_reviews INTEGER DEFAULT 0,
         total_failures INTEGER DEFAULT 0,
         consecutive_failures INTEGER DEFAULT 0,
+        consecutive_correct INTEGER DEFAULT 0,
         difficulty_score REAL DEFAULT 0.0,
         FOREIGN KEY (flashcard_id) REFERENCES flashcard(id)
       );
@@ -95,6 +98,19 @@ export async function initDatabase(): Promise<void> {
 
     sqlite.execSync(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION}`);
   }
+  _initialized = true;
+}
+
+export function initDatabase(): void {
+  ensureInitialized();
+}
+
+export function getDb() {
+  ensureInitialized();
+  if (!_db) {
+    _db = drizzle(getSqlite());
+  }
+  return _db;
 }
 
 export function seedLocalDeck(): void {
@@ -254,6 +270,7 @@ export function updateVocabularyState(
     totalReviews: number;
     totalFailures: number;
     consecutiveFailures: number;
+    consecutiveCorrect: number;
     difficultyScore: number;
   }>
 ) {
@@ -290,6 +307,7 @@ export function getDueCards(deckId: string, limit: number = 20) {
       totalReviews: userVocabularyState.totalReviews,
       totalFailures: userVocabularyState.totalFailures,
       consecutiveFailures: userVocabularyState.consecutiveFailures,
+      consecutiveCorrect: userVocabularyState.consecutiveCorrect,
     })
     .from(flashcard)
     .innerJoin(

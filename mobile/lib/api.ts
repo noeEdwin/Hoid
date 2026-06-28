@@ -64,7 +64,7 @@ export async function fetchDecks(): Promise<ApiDeck[]> {
 
 export async function fetchFlashcards(deckId: string): Promise<ApiFlashcard[]> {
   const data = await apiFetch<{ flashcards: ApiFlashcard[]; total: number }>(
-    `/api/decks/${deckId}/flashcards`
+    `/api/flashcards?deck_id=${deckId}`
   );
   return data.flashcards;
 }
@@ -110,4 +110,128 @@ export async function fetchDifficultTokens(
     `/api/vocabulary/difficulty?n=${n}`
   );
   return data.difficult_tokens;
+}
+
+export async function createDeckApi(
+  name: string,
+  description?: string
+): Promise<ApiDeck> {
+  return apiFetch<ApiDeck>("/api/decks", {
+    method: "POST",
+    body: JSON.stringify({ name, description: description ?? null }),
+  });
+}
+
+export async function deleteDeckApi(deckId: string): Promise<void> {
+  await apiFetch(`/api/decks/${deckId}`, { method: "DELETE" });
+}
+
+export async function createFlashcardApi(data: {
+  deck_id: string;
+  sentence: string;
+  sentence_pinyin?: string;
+  answer: string;
+  answer_pinyin?: string;
+  context?: string;
+  context_pinyin?: string;
+}): Promise<ApiFlashcard> {
+  return apiFetch<ApiFlashcard>("/api/flashcards", {
+    method: "POST",
+    body: JSON.stringify({ card_type: "cloze_deletion", ...data }),
+  });
+}
+
+export async function updateFlashcardApi(
+  flashcardId: string,
+  data: {
+    sentence?: string;
+    sentence_pinyin?: string;
+    answer?: string;
+    answer_pinyin?: string;
+    context?: string;
+    context_pinyin?: string;
+  }
+): Promise<ApiFlashcard> {
+  return apiFetch<ApiFlashcard>(`/api/flashcards/${flashcardId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFlashcardApi(flashcardId: string): Promise<void> {
+  await apiFetch(`/api/flashcards/${flashcardId}`, { method: "DELETE" });
+}
+
+export interface SyncDeckItem {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at?: string;
+}
+
+export interface SyncFlashcardItem {
+  id: string;
+  deck_id: string;
+  card_type: string;
+  sentence: string | null;
+  sentence_pinyin: string | null;
+  answer: string | null;
+  answer_pinyin: string | null;
+  context: string | null;
+  context_pinyin: string | null;
+  image_path: string | null;
+  audio_path: string | null;
+  created_at?: string;
+}
+
+export interface SyncVocabStateItem {
+  flashcard_id: string;
+  srs_interval: number;
+  ease_factor: number;
+  total_reviews: number;
+  total_failures: number;
+  consecutive_failures: number;
+  consecutive_correct: number;
+  difficulty_score: number;
+}
+
+export interface SyncPendingReviewItem {
+  flashcard_id: string;
+  is_correct: boolean;
+  response_time_ms: number;
+  created_at?: string;
+}
+
+export interface SyncPushRequest {
+  last_sync_at?: string;
+  decks: SyncDeckItem[];
+  flashcards: SyncFlashcardItem[];
+  vocabulary_states: SyncVocabStateItem[];
+  pending_reviews: SyncPendingReviewItem[];
+}
+
+export interface SyncPushResponse {
+  decks_upserted: number;
+  flashcards_upserted: number;
+  states_upserted: number;
+  reviews_processed: number;
+}
+
+export interface SyncPullResponse {
+  decks: SyncDeckItem[];
+  flashcards: SyncFlashcardItem[];
+  vocabulary_states: SyncVocabStateItem[];
+  synced_at: string;
+}
+
+export async function pushSync(data: SyncPushRequest): Promise<SyncPushResponse> {
+  return apiFetch<SyncPushResponse>("/api/sync/push", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function pullSync(since?: string): Promise<SyncPullResponse> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  return apiFetch<SyncPullResponse>(`/api/sync/pull${query}`);
 }

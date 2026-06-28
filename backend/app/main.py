@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.database import get_session, init_db
 from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 from app.models.scenario import Scenario
-from app.routers import flashcards, roleplay, test_page, vocabulary
+from app.routers import flashcards, roleplay, sync, test_page, vocabulary
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -88,6 +88,7 @@ app.add_middleware(
 app.include_router(flashcards.router, prefix="/api")
 app.include_router(vocabulary.router, prefix="/api")
 app.include_router(roleplay.router, prefix="/api")
+app.include_router(sync.router, prefix="/api")
 app.include_router(test_page.router)
 
 

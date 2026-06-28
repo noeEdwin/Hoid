@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.schemas.review import ReviewRating
 
 LEARNING_STEPS = [1, 3]
+MASTERY_THRESHOLD = 3
 
 
 def _find_next_step(current_interval: int) -> int | None:
@@ -17,19 +18,21 @@ def calculate_new_interval(
     ease_factor: float,
     difficulty_score: float,
     rating: ReviewRating,
+    consecutive_correct: int = 0,
 ) -> int:
+    if rating == ReviewRating.hard:
+        return LEARNING_STEPS[0]
+
+    if consecutive_correct >= MASTERY_THRESHOLD:
+        return max(1, int(current_interval * ease_factor))
+
     in_learning = current_interval <= LEARNING_STEPS[-1]
 
     if in_learning:
-        if rating == ReviewRating.hard:
-            return LEARNING_STEPS[0]
         next_step = _find_next_step(current_interval)
         if next_step is not None:
             return next_step
         return max(1, int(LEARNING_STEPS[-1] * ease_factor))
-
-    if rating == ReviewRating.hard:
-        return LEARNING_STEPS[0]
 
     base = int(current_interval * ease_factor)
     difficulty_modifier = 1.0 - (difficulty_score * 0.3)
@@ -39,6 +42,8 @@ def calculate_new_interval(
 def calculate_new_ease(current_ease: float, rating: ReviewRating) -> float:
     if rating == ReviewRating.hard:
         return max(1.3, current_ease - 0.2)
+    if rating == ReviewRating.good:
+        return min(3.0, current_ease + 0.05)
     return current_ease
 
 
@@ -57,3 +62,12 @@ def calculate_new_difficulty(
         penalty = (1.0 - response_factor) * 0.1
     adjusted = current_difficulty + penalty
     return max(0.0, min(1.0, adjusted))
+
+
+def calculate_mastery_correct(
+    current_consecutive_correct: int,
+    rating: ReviewRating,
+) -> int:
+    if rating == ReviewRating.good:
+        return current_consecutive_correct + 1
+    return 0
