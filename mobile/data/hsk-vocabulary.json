@@ -1,0 +1,164 @@
+[
+  {
+    "sentence": "他___很高",
+    "sentence_pinyin": "tā biànde hěn gāo",
+    "answer": "变得",
+    "answer_pinyin": "biànde",
+    "context": "Talking about change.",
+    "context_pinyin": "tán lùn biànhuà",
+    "image_path": "🔄"
+  },
+  {
+    "sentence": "我不会说___",
+    "sentence_pinyin": "wǒ bú huì shuō guǎngdōng huà",
+    "answer": "广东话",
+    "answer_pinyin": "guǎngdōng huà",
+    "context": "Talking about languages.",
+    "context_pinyin": "tán lùn yǔyán",
+    "image_path": "🗣️"
+  },
+  {
+    "sentence": "雨___了，我们可以出去了",
+    "sentence_pinyin": "yǔ tíng le, wǒmen kěyǐ chūqù le",
+    "answer": "停",
+    "answer_pinyin": "tíng",
+    "context": "Talking about weather.",
+    "context_pinyin": "tán lùn tiānqì",
+    "image_path": "🌧️"
+  },
+  {
+    "sentence": "我要___这个困难",
+    "sentence_pinyin": "wǒ yào kèfú zhège kùnnan",
+    "answer": "克服",
+    "answer_pinyin": "kèfú",
+    "context": "Facing challenges.",
+    "context_pinyin": "miànduì tiáozhàn",
+    "image_path": "💪"
+  },
+  {
+    "sentence": "这个___很难",
+    "sentence_pinyin": "zhège kùnnan hěn nán",
+    "answer": "困难",
+    "answer_pinyin": "kùnnan",
+    "context": "Talking about difficulties.",
+    "context_pinyin": "tán lùn kùnnan",
+    "image_path": "⛰️"
+  },
+  {
+    "sentence": "我终于___了我的目的",
+    "sentence_pinyin": "wǒ zhōngyú dádàole wǒ de mùdì",
+    "answer": "达到",
+    "answer_pinyin": "dádào",
+    "context": "Achieving a goal.",
+    "context_pinyin": "dáchéng yīgè mùbiāo",
+    "image_path": "🎯"
+  },
+  {
+    "sentence": "我的___是学好中文",
+    "sentence_pinyin": "wǒ de mùdì shì xué hǎo zhōngwén",
+    "answer": "目的",
+    "answer_pinyin": "mùdì",
+    "context": "Talking about goals.",
+    "context_pinyin": "tán lùn mùbiāo",
+    "image_path": "🏆"
+  },
+  {
+    "sentence": "他是我___的朋友",
+    "sentence_pinyin": "tā shì wǒ zhēnzhèng de péngyǒu",
+    "answer": "真正",
+    "answer_pinyin": "zhēnzhèng",
+    "context": "Describing relationships.",
+    "context_pinyin": "miáoshù guānxì",
+    "image_path": "🤝"
+  },
+  {
+    "sentence": "我不___他",
+    "sentence_pinyin": "wǒ bù liǎojiě tā",
+    "answer": "不了解",
+    "answer_pinyin": "bù liǎojiě",
+    "context": "Expressing lack of understanding.",
+    "context_pinyin": "biǎodá bù liǎojiě",
+    "image_path": "❓"
+  },
+  {
+    "sentence": "我想___我的生活",
+    "sentence_pinyin": "wǒ xiǎng gǎibiàn wǒ de shēnghuó",
+    "answer": "改变",
+    "answer_pinyin": "gǎibiàn",
+    "context": "Talking about personal change.",
+    "context_pinyin": "tán lùn gèrén biànhuà",
+    "image_path": "🔀"
+  },
+  {
+    "sentence": "你的___是什么",
+    "sentence_pinyin": "nǐ de kànfǎ shì shénme",
+    "answer": "看法",
+    "answer_pinyin": "kànfǎ",
+    "context": "Asking for opinions.",
+    "context_pinyin": "wèn biérén de yìjiàn",
+    "image_path": "💭"
+  },
+  {
+    "sentence": "我有一个___",
+    "sentence_pinyin": "wǒ yǒu yīgè xiǎngfǎ",
+    "answer": "想法",
+    "answer_pinyin": "xiǎngfǎ",
+    "context": "Sharing ideas.",
+    "context_pinyin": "fēnxiǎng xiǎngfǎ",
+    "image_path": "💡"
+  },
+  {
+    "sentence": "他很___",
+    "sentence_pinyin": "tā hěn yǒuhǎo",
+    "answer": "友好",
+    "answer_pinyin": "yǒuhǎo",
+    "context": "Describing people.",
+    "context_pinyin": "miáoshù rén",
+    "image_path": "😊"
+  },
+  {
+    "sentence": "天气___了",
+    "sentence_pinyin": "tiānqì biàn le",
+    "answer": "变",
+    "answer_pinyin": "biàn",
+    "context": "Talking about changes.",
+    "context_pinyin": "tán lùn biànhuà",
+    "image_path": "🌡️"
+  },
+  {
+    "sentence": "你___了我",
+    "sentence_pinyin": "nǐ yǐngxiǎng le wǒ",
+    "answer": "影响",
+    "answer_pinyin": "yǐngxiǎng",
+    "context": "Talking about influence.",
+    "context_pinyin": "tán lùn yǐngxiǎng",
+    "image_path": "🌊"
+  },
+  {
+    "sentence": "他喜欢看___",
+    "sentence_pinyin": "tā xǐhuān kàn dānkǒu xǐjù",
+    "answer": "单口喜剧",
+    "answer_pinyin": "dānkǒu xǐjù",
+    "context": "Talking about entertainment.",
+    "context_pinyin": "tán lùn yúlè",
+    "image_path": "🎤"
+  },
+  {
+    "sentence": "这个电影很___",
+    "sentence_pinyin": "zhège diànyǐng hěn shòu huānyíng",
+    "answer": "受欢迎",
+    "answer_pinyin": "shòu huānyíng",
+    "context": "Talking about popularity.",
+    "context_pinyin": "tán lùn shòu huānyíng",
+    "image_path": "⭐"
+  },
+  {
+    "sentence": "他讲了一个___",
+    "sentence_pinyin": "tā jiǎngle yīgè xiàohuà",
+    "answer": "笑话",
+    "answer_pinyin": "xiàohuà",
+    "context": "Talking about humor.",
+    "context_pinyin": "tán lùn yōumò",
+    "image_path": "😂"
+  }
+]

@@ -235,3 +235,20 @@ export async function pullSync(since?: string): Promise<SyncPullResponse> {
   const query = since ? `?since=${encodeURIComponent(since)}` : "";
   return apiFetch<SyncPullResponse>(`/api/sync/pull${query}`);
 }
+
+export async function generateTTS(text: string): Promise<Blob> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(`${API_BASE}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`TTS error: ${res.status}`);
+    return res.blob();
+  } finally {
+    clearTimeout(timeout);
+  }
+}

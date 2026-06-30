@@ -1,0 +1,1107 @@
+{
+  "Clothing & Shopping": [
+    {
+      "sentence": "这件___多少钱？",
+      "sentence_pinyin": "zhè jiàn chènshān duōshǎo qián?",
+      "answer": "衬衫",
+      "answer_pinyin": "chènshān",
+      "context": "Talking about shirts.",
+      "context_pinyin": "tán lùn chènshān",
+      "image_path": "👔"
+    },
+    {
+      "sentence": "我买了一条黑色的___。",
+      "sentence_pinyin": "wǒ mǎile yì tiáo hēisè de kùzi.",
+      "answer": "裤子",
+      "answer_pinyin": "kùzi",
+      "context": "Talking about pants.",
+      "context_pinyin": "tán lùn kùzi",
+      "image_path": "👖"
+    },
+    {
+      "sentence": "夏天她喜欢穿漂亮的___。",
+      "sentence_pinyin": "xiàtiān tā xǐhuan chuān piàoliang de qúnzi.",
+      "answer": "裙子",
+      "answer_pinyin": "qúnzi",
+      "context": "Talking about dresses/skirts.",
+      "context_pinyin": "tán lùn qúnzi",
+      "image_path": "👗"
+    },
+    {
+      "sentence": "这___衣服有点儿贵。",
+      "sentence_pinyin": "zhè jiàn yīfu yǒudiǎnr guì.",
+      "answer": "件",
+      "answer_pinyin": "jiàn",
+      "context": "Measure word for clothing (tops).",
+      "context_pinyin": "yīfu de liàngcí",
+      "image_path": "🧥"
+    },
+    {
+      "sentence": "这___裤子太长了。",
+      "sentence_pinyin": "zhè tiáo kùzi tài cháng le.",
+      "answer": "条",
+      "answer_pinyin": "tiáo",
+      "context": "Measure word for long, thin items.",
+      "context_pinyin": "cháng dōngxi de liàngcí",
+      "image_path": "📏"
+    },
+    {
+      "sentence": "这块___三千块。",
+      "sentence_pinyin": "zhè kuài shǒubiǎo sānqiān kuài.",
+      "answer": "手表",
+      "answer_pinyin": "shǒubiǎo",
+      "context": "Talking about watches.",
+      "context_pinyin": "tán lùn shǒubiǎo",
+      "image_path": "⌚"
+    }
+  ],
+  "Food & Taste": [
+    {
+      "sentence": "吃___对身体有帮助吗？",
+      "sentence_pinyin": "chī jīdàn duì shēntǐ yǒu bāngzhù ma?",
+      "answer": "鸡蛋",
+      "answer_pinyin": "jīdàn",
+      "context": "Talking about eggs.",
+      "context_pinyin": "tán lùn jīdàn",
+      "image_path": "🥚"
+    },
+    {
+      "sentence": "西瓜不___不要钱。",
+      "sentence_pinyin": "xīguā bù tián bú yào qián.",
+      "answer": "甜",
+      "answer_pinyin": "tián",
+      "context": "Describing something sweet.",
+      "context_pinyin": "xíngróng tián",
+      "image_path": "🍬"
+    },
+    {
+      "sentence": "这些水果真___。",
+      "sentence_pinyin": "zhèxiē shuǐguǒ zhēn xīnxiān.",
+      "answer": "新鲜",
+      "answer_pinyin": "xīnxiān",
+      "context": "Describing fresh food.",
+      "context_pinyin": "xíngróng xīnxiān",
+      "image_path": "✨"
+    },
+    {
+      "sentence": "今天的___做得很好吃。",
+      "sentence_pinyin": "jīntiān de yángròu zuò de hěn hǎochī.",
+      "answer": "羊肉",
+      "answer_pinyin": "yángròu",
+      "context": "Talking about lamb meat.",
+      "context_pinyin": "tán lùn yángròu",
+      "image_path": "🥩"
+    },
+    {
+      "sentence": "你吃过___吗？",
+      "sentence_pinyin": "nǐ chī guo liúlián ma?",
+      "answer": "榴莲",
+      "answer_pinyin": "liúlián",
+      "context": "Talking about durian.",
+      "context_pinyin": "tán lùn liúlián",
+      "image_path": "🍈"
+    },
+    {
+      "sentence": "今天水果店的___真新鲜。",
+      "sentence_pinyin": "jīntiān shuǐguǒ diàn de yīngtáo zhēn xīnxiān.",
+      "answer": "樱桃",
+      "answer_pinyin": "yīngtáo",
+      "context": "Talking about cherries.",
+      "context_pinyin": "tán lùn yīngtáo",
+      "image_path": "🍒"
+    },
+    {
+      "sentence": "我喜欢吃___，不喜欢吃苹果。",
+      "sentence_pinyin": "wǒ xǐhuan chī mángguǒ, bù xǐhuan chī píngguǒ.",
+      "answer": "芒果",
+      "answer_pinyin": "mángguǒ",
+      "context": "Talking about mangoes.",
+      "context_pinyin": "tán lùn mángguǒ",
+      "image_path": "🥭"
+    },
+    {
+      "sentence": "这杯咖啡太___了！",
+      "sentence_pinyin": "zhè bēi kāfēi tài kǔ le!",
+      "answer": "苦",
+      "answer_pinyin": "kǔ",
+      "context": "Describing bitter taste.",
+      "context_pinyin": "xíngróng kǔ",
+      "image_path": "☕"
+    },
+    {
+      "sentence": "这道菜是___，你可以吃吗？",
+      "sentence_pinyin": "zhè dào cài shì wēilà, nǐ kěyǐ chī ma?",
+      "answer": "微辣",
+      "answer_pinyin": "wēilà",
+      "context": "Describing slightly spicy taste.",
+      "context_pinyin": "xíngróng wēilà",
+      "image_path": "🌶️"
+    },
+    {
+      "sentence": "今天的羊肉有点儿___。",
+      "sentence_pinyin": "jīntiān de yángròu yǒudiǎnr xián.",
+      "answer": "咸",
+      "answer_pinyin": "xián",
+      "context": "Describing salty taste.",
+      "context_pinyin": "xíngróng xián",
+      "image_path": "🧂"
+    }
+  ],
+  "Activities & Hobbies": [
+    {
+      "sentence": "他___游得很快。",
+      "sentence_pinyin": "tā yóuyǒng yóu de hěn kuài.",
+      "answer": "游泳",
+      "answer_pinyin": "yóuyǒng",
+      "context": "Talking about swimming.",
+      "context_pinyin": "tán lùn yóuyǒng",
+      "image_path": "🏊"
+    },
+    {
+      "sentence": "别玩儿电脑___了。",
+      "sentence_pinyin": "bié wánr diànnǎo yóuxì le.",
+      "answer": "游戏",
+      "answer_pinyin": "yóuxì",
+      "context": "Playing games.",
+      "context_pinyin": "wánr yóuxì",
+      "image_path": "🎮"
+    },
+    {
+      "sentence": "我想去北京___。",
+      "sentence_pinyin": "wǒ xiǎng qù Běijīng lǚyóu.",
+      "answer": "旅游",
+      "answer_pinyin": "lǚyóu",
+      "context": "Traveling.",
+      "context_pinyin": "lǚyóu",
+      "image_path": "🧳"
+    },
+    {
+      "sentence": "春天我们喜欢去公园放___。",
+      "sentence_pinyin": "chūntiān wǒmen xǐhuan qù gōngyuán fàng fēngzheng.",
+      "answer": "风筝",
+      "answer_pinyin": "fēngzheng",
+      "context": "Flying kites.",
+      "context_pinyin": "fàng fēngzheng",
+      "image_path": "🪁"
+    }
+  ],
+  "School & Work": [
+    {
+      "sentence": "___里一个人也没有。",
+      "sentence_pinyin": "jiàoshì lǐ yí ge rén yě méiyǒu.",
+      "answer": "教室",
+      "answer_pinyin": "jiàoshì",
+      "context": "Talking about a classroom.",
+      "context_pinyin": "tán lùn jiàoshì",
+      "image_path": "🏫"
+    },
+    {
+      "sentence": "那个手里拿着___的女孩是谁？",
+      "sentence_pinyin": "nàge shǒu lǐ názhe qiānbǐ de nǚhái shì shéi?",
+      "answer": "铅笔",
+      "answer_pinyin": "qiānbǐ",
+      "context": "Talking about pencils.",
+      "context_pinyin": "tán lùn qiānbǐ",
+      "image_path": "✏️"
+    },
+    {
+      "sentence": "你的孩子上几___了？",
+      "sentence_pinyin": "nǐ de háizi shàng jǐ niánjí le?",
+      "answer": "年级",
+      "answer_pinyin": "niánjí",
+      "context": "School grades.",
+      "context_pinyin": "niánjí",
+      "image_path": "🎒"
+    },
+    {
+      "sentence": "今天的汉语课你都听___了吗？",
+      "sentence_pinyin": "jīntiān de hànyǔ kè nǐ dōu tīng dǒng le ma?",
+      "answer": "懂",
+      "answer_pinyin": "dǒng",
+      "context": "Understanding a lesson.",
+      "context_pinyin": "tīng dǒng",
+      "image_path": "💡"
+    },
+    {
+      "sentence": "对不起，这个汉字我写___了。",
+      "sentence_pinyin": "duìbuqǐ, zhège hànzì wǒ xiě cuò le.",
+      "answer": "错",
+      "answer_pinyin": "cuò",
+      "context": "Making a mistake.",
+      "context_pinyin": "xiě cuò",
+      "image_path": "❌"
+    },
+    {
+      "sentence": "考试前你要好好___。",
+      "sentence_pinyin": "kǎoshì qián nǐ yào hǎohǎo fùxí.",
+      "answer": "复习",
+      "answer_pinyin": "fùxí",
+      "context": "Reviewing for an exam.",
+      "context_pinyin": "fùxí",
+      "image_path": "📚"
+    },
+    {
+      "sentence": "他每天八点去___。",
+      "sentence_pinyin": "tā měitiān bā diǎn qù shàngbān.",
+      "answer": "上班",
+      "answer_pinyin": "shàngbān",
+      "context": "Going to work.",
+      "context_pinyin": "shàngbān",
+      "image_path": "🏢"
+    },
+    {
+      "sentence": "张___今天不在办公室。",
+      "sentence_pinyin": "Zhāng jīnglǐ jīntiān bú zài bàngōngshì.",
+      "answer": "经理",
+      "answer_pinyin": "jīnglǐ",
+      "context": "Manager.",
+      "context_pinyin": "jīnglǐ",
+      "image_path": "👔"
+    },
+    {
+      "sentence": "这位___总是笑着说话。",
+      "sentence_pinyin": "zhè wèi fúwùyuán zǒngshì xiàozhe shuōhuà.",
+      "answer": "服务员",
+      "answer_pinyin": "fúwùyuán",
+      "context": "Waiter / Attendant.",
+      "context_pinyin": "fúwùyuán",
+      "image_path": "💁"
+    },
+    {
+      "sentence": "大家都对___很热情。",
+      "sentence_pinyin": "dàjiā dōu duì kèrén hěn rèqíng.",
+      "answer": "客人",
+      "answer_pinyin": "kèrén",
+      "context": "Guests or customers.",
+      "context_pinyin": "kèrén",
+      "image_path": "🛍️"
+    },
+    {
+      "sentence": "他工作的时候很___。",
+      "sentence_pinyin": "tā gōngzuò de shíhou hěn rènzhēn.",
+      "answer": "认真",
+      "answer_pinyin": "rènzhēn",
+      "context": "Serious and diligent.",
+      "context_pinyin": "rènzhēn",
+      "image_path": "🧐"
+    },
+    {
+      "sentence": "谢谢大家这一年对我的___。",
+      "sentence_pinyin": "xièxie dàjiā zhè yì nián duì wǒ de bāngzhù.",
+      "answer": "帮助",
+      "answer_pinyin": "bāngzhù",
+      "context": "Help / assistance.",
+      "context_pinyin": "bāngzhù",
+      "image_path": "🤝"
+    },
+    {
+      "sentence": "她是我大学同学，我的工作是他___我介绍的。",
+      "sentence_pinyin": "tā shì wǒ dàxué tóngxué, wǒ de gōngzuò shì tā bāng wǒ jièshào de.",
+      "answer": "帮",
+      "answer_pinyin": "bāng",
+      "context": "Helping a friend/classmate.",
+      "context_pinyin": "bāng",
+      "image_path": "🤝"
+    }
+  ],
+  "Time & Frequency": [
+    {
+      "sentence": "他___在玩儿手机。",
+      "sentence_pinyin": "tā yìzhí zài wánr shǒujī.",
+      "answer": "一直",
+      "answer_pinyin": "yìzhí",
+      "context": "All the time / continuously.",
+      "context_pinyin": "yìzhí",
+      "image_path": "🔄"
+    },
+    {
+      "sentence": "她___笑着跟客人说话。",
+      "sentence_pinyin": "tā zǒngshì xiàozhe gēn kèrén shuōhuà.",
+      "answer": "总是",
+      "answer_pinyin": "zǒngshì",
+      "context": "Always.",
+      "context_pinyin": "zǒngshì",
+      "image_path": "🔁"
+    },
+    {
+      "sentence": "我虽然去过好几___，但是还想去。",
+      "sentence_pinyin": "wǒ suīrán qùguo hǎo jǐ cì, dànshì hái xiǎng qù.",
+      "answer": "次",
+      "answer_pinyin": "cì",
+      "context": "Times / occurrences.",
+      "context_pinyin": "cì",
+      "image_path": "🔢"
+    },
+    {
+      "sentence": "这个___你有什么打算？",
+      "sentence_pinyin": "zhège zhōumò nǐ yǒu shénme dǎsuàn?",
+      "answer": "周末",
+      "answer_pinyin": "zhōumò",
+      "context": "Weekend.",
+      "context_pinyin": "zhōumò",
+      "image_path": "📅"
+    }
+  ],
+  "Location & Directions": [
+    {
+      "sentence": "咖啡店在学校的___。",
+      "sentence_pinyin": "kāfēidiàn zài xuéxiào de pángbiān.",
+      "answer": "旁边",
+      "answer_pinyin": "pángbiān",
+      "context": "Beside / next to.",
+      "context_pinyin": "pángbiān",
+      "image_path": "➡️"
+    },
+    {
+      "sentence": "___那个红色的是我的。",
+      "sentence_pinyin": "zuǒbiān nàge hóngsè de shì wǒ de.",
+      "answer": "左边",
+      "answer_pinyin": "zuǒbiān",
+      "context": "Left side.",
+      "context_pinyin": "zuǒbiān",
+      "image_path": "⬅️"
+    },
+    {
+      "sentence": "___写字的那个人是我哥哥。",
+      "sentence_pinyin": "yòubiān xiězì de nàge rén shì wǒ gēge.",
+      "answer": "右边",
+      "answer_pinyin": "yòubiān",
+      "context": "Right side.",
+      "context_pinyin": "yòubiān",
+      "image_path": "➡️"
+    },
+    {
+      "sentence": "我要去___接朋友。",
+      "sentence_pinyin": "wǒ yào qù jīchǎng jiē péngyou.",
+      "answer": "机场",
+      "answer_pinyin": "jīchǎng",
+      "context": "Airport.",
+      "context_pinyin": "jīchǎng",
+      "image_path": "✈️"
+    },
+    {
+      "sentence": "这个___里有什么？",
+      "sentence_pinyin": "zhège fángjiān lǐ yǒu shénme?",
+      "answer": "房间",
+      "answer_pinyin": "fángjiān",
+      "context": "Room.",
+      "context_pinyin": "fángjiān",
+      "image_path": "🚪"
+    },
+    {
+      "sentence": "你家___公司远吗？",
+      "sentence_pinyin": "nǐ jiā lí gōngsī yuǎn ma?",
+      "answer": "离",
+      "answer_pinyin": "lí",
+      "context": "Distance from.",
+      "context_pinyin": "lí",
+      "image_path": "📏"
+    },
+    {
+      "sentence": "机场离我们这儿还___呢。",
+      "sentence_pinyin": "jīchǎng lí wǒmen zhèr hái yuǎn ne.",
+      "answer": "远",
+      "answer_pinyin": "yuǎn",
+      "context": "Far.",
+      "context_pinyin": "yuǎn",
+      "image_path": "🔭"
+    },
+    {
+      "sentence": "请___后看。",
+      "sentence_pinyin": "qǐng wǎng hòu kàn.",
+      "answer": "往",
+      "answer_pinyin": "wǎng",
+      "context": "Towards.",
+      "context_pinyin": "wǎng",
+      "image_path": "🧭"
+    }
+  ],
+  "Aspect Marker: 着": [
+    {
+      "sentence": "门___呢，请进。",
+      "sentence_pinyin": "mén kāi zhe ne, qǐng jìn.",
+      "answer": "开着",
+      "answer_pinyin": "kāi zhe",
+      "context": "The door is open.",
+      "context_pinyin": "mén kāi zhe",
+      "image_path": "🚪"
+    },
+    {
+      "sentence": "桌子上___一杯咖啡。",
+      "sentence_pinyin": "zhuōzi shang fàng zhe yì bēi kāfēi.",
+      "answer": "放着",
+      "answer_pinyin": "fàng zhe",
+      "context": "Something placed on the table.",
+      "context_pinyin": "fàng zhe kāfēi",
+      "image_path": "☕"
+    },
+    {
+      "sentence": "办公室里___三个人。",
+      "sentence_pinyin": "bàngōngshì lǐ zuò zhe sān ge rén.",
+      "answer": "坐着",
+      "answer_pinyin": "zuò zhe",
+      "context": "People sitting.",
+      "context_pinyin": "zuò zhe",
+      "image_path": "🪑"
+    },
+    {
+      "sentence": "那个手里___铅笔的女孩是谁？",
+      "sentence_pinyin": "nàge shǒu lǐ ná zhe qiānbǐ de nǚhái shì shéi?",
+      "answer": "拿着",
+      "answer_pinyin": "ná zhe",
+      "context": "Holding a pencil.",
+      "context_pinyin": "ná zhe qiānbǐ",
+      "image_path": "✍️"
+    },
+    {
+      "sentence": "他们___红色的衣服。",
+      "sentence_pinyin": "tāmen chuān zhe hóngsè de yīfu.",
+      "answer": "穿着",
+      "answer_pinyin": "chuān zhe",
+      "context": "Wearing clothes.",
+      "context_pinyin": "chuān zhe",
+      "image_path": "👕"
+    },
+    {
+      "sentence": "她总是___跟客人说话。",
+      "sentence_pinyin": "tā zǒngshì xiàozhe gēn kèrén shuōhuà.",
+      "answer": "笑着",
+      "answer_pinyin": "xiàozhe",
+      "context": "Talking with a smile.",
+      "context_pinyin": "xiàozhe shuōhuà",
+      "image_path": "😊"
+    },
+    {
+      "sentence": "周太太___看电视。",
+      "sentence_pinyin": "Zhōu tàitai zuòzhe kàn diànshì.",
+      "answer": "坐着",
+      "answer_pinyin": "zuòzhe",
+      "context": "Sitting while watching TV.",
+      "context_pinyin": "zuòzhe kàn diànshì",
+      "image_path": "🛋️"
+    },
+    {
+      "sentence": "我喜欢___音乐学习。",
+      "sentence_pinyin": "wǒ xǐhuan tīngzhe yīnyuè xuéxí.",
+      "answer": "听着",
+      "answer_pinyin": "tīngzhe",
+      "context": "Listening to music while studying.",
+      "context_pinyin": "tīngzhe yīnyuè",
+      "image_path": "🎧"
+    },
+    {
+      "sentence": "学生们___回答老师的问题。",
+      "sentence_pinyin": "xuésheng men zhànzhe huídá lǎoshī de wèntí.",
+      "answer": "站着",
+      "answer_pinyin": "zhànzhe",
+      "context": "Standing while answering.",
+      "context_pinyin": "zhànzhe huídá",
+      "image_path": "🧍"
+    },
+    {
+      "sentence": "我喜欢___饮料看电影。",
+      "sentence_pinyin": "wǒ xǐhuan hēzhe yǐnliào kàn diànyǐng.",
+      "answer": "喝着",
+      "answer_pinyin": "hēzhe",
+      "context": "Drinking while watching a movie.",
+      "context_pinyin": "hēzhe yǐnliào",
+      "image_path": "🥤"
+    }
+  ],
+  "Comparisons": [
+    {
+      "sentence": "西瓜___苹果贵。",
+      "sentence_pinyin": "xīguā bǐ píngguǒ guì.",
+      "answer": "比",
+      "answer_pinyin": "bǐ",
+      "context": "Comparison (than).",
+      "context_pinyin": "bǐjiào",
+      "image_path": "⚖️"
+    },
+    {
+      "sentence": "姚明比易建联___高。",
+      "sentence_pinyin": "Yáomíng bǐ Yìjiànlián gèng gāo.",
+      "answer": "更",
+      "answer_pinyin": "gèng",
+      "context": "Even more (comparison).",
+      "context_pinyin": "gèng gāo",
+      "image_path": "⬆️"
+    },
+    {
+      "sentence": "大卫的英语___好。",
+      "sentence_pinyin": "Dàwèi de yīngyǔ zuì hǎo.",
+      "answer": "最",
+      "answer_pinyin": "zuì",
+      "context": "The most / best.",
+      "context_pinyin": "zuì hǎo",
+      "image_path": "🏆"
+    },
+    {
+      "sentence": "西瓜___苹果便宜。",
+      "sentence_pinyin": "xīguā méiyǒu píngguǒ piányi.",
+      "answer": "没有",
+      "answer_pinyin": "méiyǒu",
+      "context": "Not as (comparison).",
+      "context_pinyin": "méiyǒu piányi",
+      "image_path": "📉"
+    },
+    {
+      "sentence": "他比我大___。",
+      "sentence_pinyin": "tā bǐ wǒ dà yìdiǎnr.",
+      "answer": "一点儿",
+      "answer_pinyin": "yìdiǎnr",
+      "context": "A little bit more.",
+      "context_pinyin": "yìdiǎnr",
+      "image_path": "🤏"
+    }
+  ],
+  "Progressive: 越来越": [
+    {
+      "sentence": "他跑得___快了。",
+      "sentence_pinyin": "tā pǎo de yuè lái yuè kuài le.",
+      "answer": "越来越",
+      "answer_pinyin": "yuè lái yuè",
+      "context": "Faster and faster.",
+      "context_pinyin": "yuè lái yuè kuài",
+      "image_path": "🏃💨"
+    },
+    {
+      "sentence": "你的汉语说得___好了。",
+      "sentence_pinyin": "nǐ de hànyǔ shuō de yuè lái yuè hǎo le.",
+      "answer": "越来越",
+      "answer_pinyin": "yuè lái yuè",
+      "context": "Better and better.",
+      "context_pinyin": "yuè lái yuè hǎo",
+      "image_path": "🗣️📈"
+    },
+    {
+      "sentence": "我最近___胖了。",
+      "sentence_pinyin": "wǒ zuìjìn yuè lái yuè pàng le.",
+      "answer": "越来越",
+      "answer_pinyin": "yuè lái yuè",
+      "context": "Getting fatter.",
+      "context_pinyin": "yuè lái yuè pàng",
+      "image_path": "🍔"
+    },
+    {
+      "sentence": "这几天工作___忙了。",
+      "sentence_pinyin": "zhè jǐ tiān gōngzuò yuè lái yuè máng le.",
+      "answer": "越来越",
+      "answer_pinyin": "yuè lái yuè",
+      "context": "Busier and busier.",
+      "context_pinyin": "yuè lái yuè máng",
+      "image_path": "💼📈"
+    }
+  ],
+  "Both...And: 又...又...": [
+    {
+      "sentence": "我姐姐___聪明___漂亮。",
+      "sentence_pinyin": "wǒ jiějie yòu cōngmíng yòu piàoliang.",
+      "answer": "又...又...",
+      "answer_pinyin": "yòu...yòu...",
+      "context": "Smart and beautiful.",
+      "context_pinyin": "cōngmíng piàoliang",
+      "image_path": "🌟"
+    },
+    {
+      "sentence": "这个西瓜___大___甜。",
+      "sentence_pinyin": "zhège xīguā yòu dà yòu tián.",
+      "answer": "又...又...",
+      "answer_pinyin": "yòu...yòu...",
+      "context": "Big and sweet.",
+      "context_pinyin": "dà tián",
+      "image_path": "🍉"
+    },
+    {
+      "sentence": "上海的冬天___冷___湿。",
+      "sentence_pinyin": "Shànghǎi de dōngtiān yòu lěng yòu shī.",
+      "answer": "又...又...",
+      "answer_pinyin": "yòu...yòu...",
+      "context": "Cold and wet.",
+      "context_pinyin": "lěng shī",
+      "image_path": "🥶"
+    },
+    {
+      "sentence": "那个服务员___认真___热情。",
+      "sentence_pinyin": "nàge fúwùyuán yòu rènzhēn yòu rèqíng.",
+      "answer": "又...又...",
+      "answer_pinyin": "yòu...yòu...",
+      "context": "Diligent and enthusiastic.",
+      "context_pinyin": "rènzhēn rèqíng",
+      "image_path": "👏"
+    }
+  ],
+  "Resultative Complements": [
+    {
+      "sentence": "大卫___工作了。",
+      "sentence_pinyin": "Dàwèi zhǎo dào gōngzuò le.",
+      "answer": "找到",
+      "answer_pinyin": "zhǎo dào",
+      "context": "Result: successfully found a job.",
+      "context_pinyin": "zhǎo dào gōngzuò",
+      "image_path": "💼"
+    },
+    {
+      "sentence": "你___我的手机了吗？",
+      "sentence_pinyin": "nǐ kàn jiàn wǒ de shǒujī le ma?",
+      "answer": "看见",
+      "answer_pinyin": "kàn jiàn",
+      "context": "Result: saw something.",
+      "context_pinyin": "kàn jiàn shǒujī",
+      "image_path": "👀"
+    },
+    {
+      "sentence": "昨天的课你都___了吗？",
+      "sentence_pinyin": "zuótiān de kè nǐ dōu tīng dǒng le ma?",
+      "answer": "听懂",
+      "answer_pinyin": "tīng dǒng",
+      "context": "Result: understood by listening.",
+      "context_pinyin": "tīng dǒng kè",
+      "image_path": "👂💡"
+    },
+    {
+      "sentence": "对不起，这个汉字我___了。",
+      "sentence_pinyin": "duìbuqǐ, zhège hànzì wǒ xiě cuò le.",
+      "answer": "写错",
+      "answer_pinyin": "xiě cuò",
+      "context": "Result: wrote incorrectly.",
+      "context_pinyin": "xiě cuò hànzì",
+      "image_path": "✍️❌"
+    },
+    {
+      "sentence": "你___准备了吗？",
+      "sentence_pinyin": "nǐ zhǔnbèi hǎo le ma?",
+      "answer": "做好",
+      "answer_pinyin": "zuò hǎo",
+      "context": "Result: completed well/ready.",
+      "context_pinyin": "zhǔnbèi hǎo",
+      "image_path": "✅"
+    },
+    {
+      "sentence": "题太多，我没___。",
+      "sentence_pinyin": "tí tài duō, wǒ méi zuò wán.",
+      "answer": "做完",
+      "answer_pinyin": "zuò wán",
+      "context": "Result: finished doing.",
+      "context_pinyin": "zuò wán tí",
+      "image_path": "🏁"
+    },
+    {
+      "sentence": "我没___机票。",
+      "sentence_pinyin": "wǒ méi mǎi dào jīpiào.",
+      "answer": "买到",
+      "answer_pinyin": "mǎi dào",
+      "context": "Result: successfully bought.",
+      "context_pinyin": "mǎi dào jīpiào",
+      "image_path": "🎫"
+    },
+    {
+      "sentence": "服务员，我房间的门___了。",
+      "sentence_pinyin": "fúwùyuán, wǒ fángjiān de mén dǎ bù kāi le.",
+      "answer": "打不开",
+      "answer_pinyin": "dǎ bù kāi",
+      "context": "Result: cannot open.",
+      "context_pinyin": "dǎ bù kāi",
+      "image_path": "🚪❌"
+    },
+    {
+      "sentence": "明天的考试我早就___了。",
+      "sentence_pinyin": "míngtiān de kǎoshì wǒ zǎo jiù fùxí hǎo le.",
+      "answer": "复习好",
+      "answer_pinyin": "fùxí hǎo",
+      "context": "Result: prepared/reviewed well.",
+      "context_pinyin": "fùxí hǎo",
+      "image_path": "📚✅"
+    },
+    {
+      "sentence": "他回___家的时候，太太已经做___饭了。",
+      "sentence_pinyin": "tā huí dào jiā de shíhou, tàitai yǐjīng zuò hǎo fàn le.",
+      "answer": "到...好",
+      "answer_pinyin": "dào...hǎo",
+      "context": "Result: arrived and cooked well.",
+      "context_pinyin": "huí dào... zuò hǎo",
+      "image_path": "🏡🍽️"
+    }
+  ],
+  "Degree Complement: 得": [
+    {
+      "sentence": "大卫跑步跑___很快。",
+      "sentence_pinyin": "Dàwèi pǎobù pǎo de hěn kuài.",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Complement of degree (fast).",
+      "context_pinyin": "pǎo de kuài",
+      "image_path": "🏃💨"
+    },
+    {
+      "sentence": "他汉语说___很好。",
+      "sentence_pinyin": "tā hànyǔ shuō de hěn hǎo.",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Complement of degree (good).",
+      "context_pinyin": "shuō de hǎo",
+      "image_path": "🗣️👍"
+    },
+    {
+      "sentence": "我起床起___很早。",
+      "sentence_pinyin": "wǒ qǐchuáng qǐ de hěn zǎo.",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Complement of degree (early).",
+      "context_pinyin": "qǐ de zǎo",
+      "image_path": "🌅"
+    },
+    {
+      "sentence": "今天的羊肉做___很好吃。",
+      "sentence_pinyin": "jīntiān de yángròu zuò de hěn hǎochī.",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Complement of degree (delicious).",
+      "context_pinyin": "zuò de hǎochī",
+      "image_path": "🍽️😋"
+    },
+    {
+      "sentence": "昨天晚上你睡___好不好？",
+      "sentence_pinyin": "zuótiān wǎnshang nǐ shuì de hǎo bù hǎo?",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Asking about degree (sleep well?).",
+      "context_pinyin": "shuì de hǎo",
+      "image_path": "🛌"
+    },
+    {
+      "sentence": "那家饭店的菜做___？",
+      "sentence_pinyin": "nà jiā fàndiàn de cài zuò de hǎo bù hǎo chī?",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Asking about degree: is it delicious?",
+      "context_pinyin": "zuò de hǎo bù hǎo chī",
+      "image_path": "🤔🍽️"
+    },
+    {
+      "sentence": "这家商店的衣服卖___？",
+      "sentence_pinyin": "zhè jiā shāngdiàn de yīfu mài de guì bu guì?",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Asking about degree: is it expensive?",
+      "context_pinyin": "mài de guì bu guì",
+      "image_path": "💸🤔"
+    },
+    {
+      "sentence": "这次考试我考___，没做完。",
+      "sentence_pinyin": "zhè cì kǎoshì wǒ kǎo de bú tài hǎo, méi zuò wán.",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Degree: did not do very well in the exam.",
+      "context_pinyin": "kǎo de bú tài hǎo",
+      "image_path": "📝📉"
+    },
+    {
+      "sentence": "他法语说___。",
+      "sentence_pinyin": "tā fǎyǔ shuō de fēicháng hǎo.",
+      "answer": "得",
+      "answer_pinyin": "de",
+      "context": "Degree: speaks extremely well.",
+      "context_pinyin": "shuō de fēicháng hǎo",
+      "image_path": "🗣️⭐"
+    }
+  ],
+  "Family & Relationships": [
+    {
+      "sentence": "Tom的___长头发还是短头发？",
+      "sentence_pinyin": "Tom de qīzi cháng tóufa háishì duǎn tóufa?",
+      "answer": "妻子",
+      "answer_pinyin": "qīzi",
+      "context": "Wife.",
+      "context_pinyin": "qīzi",
+      "image_path": "👰"
+    },
+    {
+      "sentence": "她的___在医院工作。",
+      "sentence_pinyin": "tā de zhàngfu zài yīyuàn gōngzuò.",
+      "answer": "丈夫",
+      "answer_pinyin": "zhàngfu",
+      "context": "Husband.",
+      "context_pinyin": "zhàngfu",
+      "image_path": "🤵"
+    },
+    {
+      "sentence": "这是我和我___的房间。",
+      "sentence_pinyin": "zhè shì wǒ hé wǒ zhàngfu de fángjiān.",
+      "answer": "丈夫",
+      "answer_pinyin": "zhàngfu",
+      "context": "Husband.",
+      "context_pinyin": "zhàngfu",
+      "image_path": "🤵"
+    }
+  ],
+  "Weather, Nature & Numbers": [
+    {
+      "sentence": "明天天气怎么样？是___天。",
+      "sentence_pinyin": "míngtiān tiānqì zěnmeyàng? shì qíng tiān.",
+      "answer": "晴",
+      "answer_pinyin": "qíng",
+      "context": "Sunny day.",
+      "context_pinyin": "qíng tiān",
+      "image_path": "☀️"
+    },
+    {
+      "sentence": "今天下大___。真冷啊！",
+      "sentence_pinyin": "jīntiān xià dà xuě. zhēn lěng a!",
+      "answer": "雪",
+      "answer_pinyin": "xuě",
+      "context": "Snowing heavily.",
+      "context_pinyin": "xià xuě",
+      "image_path": "❄️"
+    },
+    {
+      "sentence": "今天三十___。",
+      "sentence_pinyin": "jīntiān sānshí dù.",
+      "answer": "度",
+      "answer_pinyin": "dù",
+      "context": "Temperature degree.",
+      "context_pinyin": "wēndù dù",
+      "image_path": "🌡️"
+    },
+    {
+      "sentence": "今天___下十度。",
+      "sentence_pinyin": "jīntiān líng xià shí dù.",
+      "answer": "零",
+      "answer_pinyin": "líng",
+      "context": "Zero (degrees).",
+      "context_pinyin": "líng xià",
+      "image_path": "0️⃣"
+    },
+    {
+      "sentence": "春天草和___都绿了。",
+      "sentence_pinyin": "chūntiān cǎo hé shù dōu lǜ le.",
+      "answer": "树",
+      "answer_pinyin": "shù",
+      "context": "Trees.",
+      "context_pinyin": "shù",
+      "image_path": "🌳"
+    },
+    {
+      "sentence": "这块手表三___块。",
+      "sentence_pinyin": "zhè kuài shǒubiǎo sānqiān kuài.",
+      "answer": "千",
+      "answer_pinyin": "qiān",
+      "context": "Thousand.",
+      "context_pinyin": "qiān",
+      "image_path": "💸"
+    },
+    {
+      "sentence": "这件衣服两___块。",
+      "sentence_pinyin": "zhè jiàn yīfu liǎngbǎi kuài.",
+      "answer": "百",
+      "answer_pinyin": "bǎi",
+      "context": "Hundred.",
+      "context_pinyin": "bǎi",
+      "image_path": "💵"
+    },
+    {
+      "sentence": "电视上说今天是___。",
+      "sentence_pinyin": "diànshì shang shuō jīntiān shì yíntiān.",
+      "answer": "阴天",
+      "answer_pinyin": "yíntiān",
+      "context": "Overcast day.",
+      "context_pinyin": "yíntiān",
+      "image_path": "☁️"
+    },
+    {
+      "sentence": "今天天气不好，因为有很多___。",
+      "sentence_pinyin": "jīntiān tiānqì bù hǎo, yīnwèi yǒu hěn duō duōyún.",
+      "answer": "多云",
+      "answer_pinyin": "duōyún",
+      "context": "Cloudy day.",
+      "context_pinyin": "duōyún",
+      "image_path": "⛅"
+    },
+    {
+      "sentence": "明天可能会下大___。",
+      "sentence_pinyin": "míngtiān kěnéng huì xià dà xuě.",
+      "answer": "雪",
+      "answer_pinyin": "xuě",
+      "context": "Heavy snow.",
+      "context_pinyin": "xià dà xuě",
+      "image_path": "❄️"
+    },
+    {
+      "sentence": "今天的___有零下10度。",
+      "sentence_pinyin": "jīntiān de qìwēn yǒu líng xià shí dù.",
+      "answer": "气温",
+      "answer_pinyin": "qìwēn",
+      "context": "Temperature.",
+      "context_pinyin": "qìwēn",
+      "image_path": "🌡️"
+    },
+    {
+      "sentence": "外面太冷了，有___15度吧？",
+      "sentence_pinyin": "wàimiàn tài lěng le, yǒu líng xià shíwǔ dù ba?",
+      "answer": "零下",
+      "answer_pinyin": "líng xià",
+      "context": "Below zero.",
+      "context_pinyin": "líng xià",
+      "image_path": "🥶"
+    }
+  ],
+  "Colors": [
+    {
+      "sentence": "你喜欢这条___的裤子吗？",
+      "sentence_pinyin": "nǐ xǐhuan zhè tiáo zǐsè de kùzi ma?",
+      "answer": "紫色",
+      "answer_pinyin": "zǐsè",
+      "context": "Talking about the color purple.",
+      "context_pinyin": "tán lùn zǐsè",
+      "image_path": "🟪"
+    },
+    {
+      "sentence": "那个___的杯子是我的。",
+      "sentence_pinyin": "nàge zōngsè de bēizi shì wǒ de.",
+      "answer": "棕色",
+      "answer_pinyin": "zōngsè",
+      "context": "Talking about the color brown.",
+      "context_pinyin": "tán lùn zōngsè",
+      "image_path": "🟫"
+    },
+    {
+      "sentence": "这块手表有___的也有金色的。",
+      "sentence_pinyin": "zhè kuài shǒubiǎo yǒu yínsè de yě yǒu jīnsè de.",
+      "answer": "银色",
+      "answer_pinyin": "yínsè",
+      "context": "Talking about the color silver.",
+      "context_pinyin": "tán lùn yínsè",
+      "image_path": "🪙"
+    },
+    {
+      "sentence": "我不喜欢___的衣服。",
+      "sentence_pinyin": "wǒ bù xǐhuan huīsè de yīfu.",
+      "answer": "灰色",
+      "answer_pinyin": "huīsè",
+      "context": "Talking about the color grey.",
+      "context_pinyin": "tán lùn huīsè",
+      "image_path": "🐘"
+    }
+  ],
+  "Connectors & Conjunctions": [
+    {
+      "sentence": "他___早就在家了。",
+      "sentence_pinyin": "tā kěnéng zǎo jiù zài jiā le.",
+      "answer": "可能",
+      "answer_pinyin": "kěnéng",
+      "context": "Maybe / probably.",
+      "context_pinyin": "kěnéng",
+      "image_path": "🤷"
+    },
+    {
+      "sentence": "___是晴天，但是很冷。",
+      "sentence_pinyin": "suīrán shì qíngtiān, dànshì hěn lěng.",
+      "answer": "虽然",
+      "answer_pinyin": "suīrán",
+      "context": "Although.",
+      "context_pinyin": "suīrán",
+      "image_path": "🌥️"
+    },
+    {
+      "sentence": "这件衣服好看，___有点贵。",
+      "sentence_pinyin": "zhè jiàn yīfu hǎokàn, dànshì yǒudiǎn guì.",
+      "answer": "但是",
+      "answer_pinyin": "dànshì",
+      "context": "But.",
+      "context_pinyin": "dànshì",
+      "image_path": "💳"
+    },
+    {
+      "sentence": "___你去我的国家旅游，哪个季节最好？",
+      "sentence_pinyin": "rúguǒ nǐ qù wǒ de guójiā lǚyóu, nǎge jìjié zuì hǎo?",
+      "answer": "如果",
+      "answer_pinyin": "rúguǒ",
+      "context": "If (conditional).",
+      "context_pinyin": "rúguǒ",
+      "image_path": "❓"
+    },
+    {
+      "sentence": "他生病了，___我来看他。",
+      "sentence_pinyin": "tā shēngbìng le, suǒyǐ wǒ lái kàn tā.",
+      "answer": "所以",
+      "answer_pinyin": "suǒyǐ",
+      "context": "Therefore / So.",
+      "context_pinyin": "suǒyǐ",
+      "image_path": "➡️"
+    },
+    {
+      "sentence": "我喝茶___喝咖啡都可以。",
+      "sentence_pinyin": "wǒ hē chá huòzhě hē kāfēi dōu kěyǐ.",
+      "answer": "或者",
+      "answer_pinyin": "huòzhě",
+      "context": "Or (in statements).",
+      "context_pinyin": "huòzhě",
+      "image_path": "☕🍵"
+    },
+    {
+      "sentence": "你喜欢在家吃___去饭馆吃？",
+      "sentence_pinyin": "nǐ xǐhuan zài jiā chī háishì qù fànguǎn chī?",
+      "answer": "还是",
+      "answer_pinyin": "háishì",
+      "context": "Or (in questions).",
+      "context_pinyin": "háishì",
+      "image_path": "🏠🏢"
+    },
+    {
+      "sentence": "她___不喝咖啡。",
+      "sentence_pinyin": "tā jīhū bù hē kāfēi.",
+      "answer": "几乎不",
+      "answer_pinyin": "jīhū bù",
+      "context": "Rarely / Almost not.",
+      "context_pinyin": "jīhū bù",
+      "image_path": "🚫☕"
+    }
+  ],
+  "Quantity Expressions": [
+    {
+      "sentence": "这件衣服___大。",
+      "sentence_pinyin": "zhè jiàn yīfu yǒudiǎnr dà.",
+      "answer": "有点儿",
+      "answer_pinyin": "yǒudiǎnr",
+      "context": "A little bit (negative mood/complaint).",
+      "context_pinyin": "yǒudiǎnr dà",
+      "image_path": "🤏"
+    },
+    {
+      "sentence": "那件衣服便宜___。",
+      "sentence_pinyin": "nà jiàn yīfu piányi yìdiǎnr.",
+      "answer": "一点儿",
+      "answer_pinyin": "yìdiǎnr",
+      "context": "A little bit more (comparison).",
+      "context_pinyin": "yìdiǎnr",
+      "image_path": "📉"
+    },
+    {
+      "sentence": "杯子里有___水。",
+      "sentence_pinyin": "bēizi lǐ yǒu yìdiǎnr shuǐ.",
+      "answer": "一点儿",
+      "answer_pinyin": "yìdiǎnr",
+      "context": "A little bit (quantity).",
+      "context_pinyin": "yìdiǎnr shuǐ",
+      "image_path": "💧"
+    },
+    {
+      "sentence": "他比弟弟高___。",
+      "sentence_pinyin": "tā bǐ dìdi gāo yìxiē.",
+      "answer": "一些",
+      "answer_pinyin": "yìxiē",
+      "context": "Some / A little more (comparison).",
+      "context_pinyin": "gāo yìxiē",
+      "image_path": "📏"
+    },
+    {
+      "sentence": "西班牙人能听懂___葡萄牙语。",
+      "sentence_pinyin": "Xībānyárén néng tīng dǒng yìxiē Pútáoyáyǔ.",
+      "answer": "一些",
+      "answer_pinyin": "yìxiē",
+      "context": "Some (quantity).",
+      "context_pinyin": "yìxiē",
+      "image_path": "🗣️"
+    }
+  ]
+}

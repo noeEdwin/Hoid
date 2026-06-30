@@ -7,6 +7,7 @@ interface DeckCardProps {
   name: string;
   description: string | null;
   cardCount: number;
+  isReviewedToday?: boolean;
   onStartReview: (deckId: string) => void;
 }
 
@@ -15,6 +16,7 @@ export default function DeckCard({
   name,
   description,
   cardCount,
+  isReviewedToday,
   onStartReview,
 }: DeckCardProps) {
   return (
@@ -23,13 +25,20 @@ export default function DeckCard({
       style={styles.container}
     >
       <LinearGradient
-        colors={["#005bbd", "#7622e5"]}
+        colors={isReviewedToday ? ["#2e7d32", "#43a047"] : ["#005bbd", "#7622e5"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
         <View style={styles.content}>
-          <Text style={styles.name}>{name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{name}</Text>
+            {isReviewedToday && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>✓</Text>
+              </View>
+            )}
+          </View>
           {description && (
             <Text style={styles.description} numberOfLines={2}>
               {description}
@@ -39,8 +48,10 @@ export default function DeckCard({
             {cardCount} {cardCount === 1 ? "card" : "cards"}
           </Text>
         </View>
-        <View style={styles.button}>
-          <Text style={styles.buttonText}>View Deck</Text>
+        <View style={[styles.button, isReviewedToday && styles.buttonCompleted]}>
+          <Text style={[styles.buttonText, isReviewedToday && styles.buttonTextCompleted]}>
+            {isReviewedToday ? "Completed" : "View Deck"}
+          </Text>
         </View>
       </LinearGradient>
     </Pressable>
@@ -61,11 +72,29 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   name: {
     fontSize: normalize(22),
     fontWeight: "700",
     color: "white",
-    marginBottom: 8,
+  },
+  badge: {
+    backgroundColor: "rgba(255,255,255,0.3)",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: {
+    color: "white",
+    fontSize: normalize(12),
+    fontWeight: "700",
   },
   description: {
     fontSize: normalize(14),
@@ -85,9 +114,15 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: 16,
   },
+  buttonCompleted: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
   buttonText: {
     fontSize: normalize(14),
     fontWeight: "600",
     color: "#005bbd",
+  },
+  buttonTextCompleted: {
+    color: "white",
   },
 });

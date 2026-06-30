@@ -1,11 +1,17 @@
 import { create } from "zustand";
+import { Paths, File, Directory } from "expo-file-system";
 import {
   getDeckById,
   getFlashcardsByDeck,
   createFlashcard,
   updateFlashcard,
   deleteFlashcard,
+  deleteDeck as deleteDeckFromDB,
+  updateDeck as updateDeckFromDB,
+  updateFlashcardAudioPath,
 } from "../lib/database";
+import { useVocabularyStore } from "./useVocabularyStore";
+import { generateTTS } from "../lib/api";
 import type { Flashcard } from "../lib/schema";
 
 interface FlashcardItem {
@@ -17,6 +23,7 @@ interface FlashcardItem {
   context: string | null;
   contextPinyin: string | null;
   cardType: string;
+  audioPath: string | null;
 }
 
 interface DeckDetailState {
@@ -25,6 +32,7 @@ interface DeckDetailState {
   deckDescription: string | null;
   flashcards: FlashcardItem[];
   isLoading: boolean;
+  isGeneratingAudio: boolean;
 
   loadDeck: (deckId: string) => void;
   addFlashcard: (data: {
@@ -34,7 +42,7 @@ interface DeckDetailState {
     answerPinyin?: string;
     context?: string;
     contextPinyin?: string;
-  }) => void;
+  }) => Promise<void>;
   editFlashcard: (
     flashcardId: string,
     data: {
@@ -47,6 +55,8 @@ interface DeckDetailState {
     }
   ) => void;
   removeFlashcard: (flashcardId: string) => void;
+  removeDeck: () => void;
+  updateDeck: (name: string, description?: string) => void;
 }
 
 function mapFlashcard(f: Flashcard): FlashcardItem {
@@ -59,7 +69,29 @@ function mapFlashcard(f: Flashcard): FlashcardItem {
     context: f.context ?? null,
     contextPinyin: f.contextPinyin ?? null,
     cardType: f.cardType,
+    audioPath: f.audioPath ?? null,
   };
+}
+
+async function saveAudioToFile(flashcardId: string, audioBlob: Blob): Promise<string> {
+  const audioDir = new Directory(Paths.document, "audio");
+  if (!audioDir.exists) {
+    audioDir.create();
+  }
+
+  const file = new File(audioDir, `${flashcardId}.mp3`);
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+
+  const base64 = btoa(
+    Array.from(uint8Array)
+      .map((b) => String.fromCharCode(b))
+      .join("")
+  );
+
+  await file.write(base64, { encoding: "base64" });
+
+  return file.uri;
 }
 
 export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
@@ -68,6 +100,7 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
   deckDescription: null,
   flashcards: [],
   isLoading: false,
+  isGeneratingAudio: false,
 
   loadDeck: (deckId: string) => {
     set({ isLoading: true });
@@ -82,12 +115,32 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
     });
   },
 
-  addFlashcard: (data) => {
+  addFlashcard: async (data) => {
     const { deckId } = get();
     if (!deckId) return;
-    createFlashcard({ deckId, ...data });
+
+    const card = createFlashcard({ deckId, ...data });
+    if (!card) return;
+
     const cards = getFlashcardsByDeck(deckId);
     set({ flashcards: cards.map(mapFlashcard) });
+
+    useVocabularyStore.getState().loadLocalData();
+
+    const fullSentence = (data.sentence || `___${data.answer}`).replace("___", data.answer);
+
+    try {
+      set({ isGeneratingAudio: true });
+      const audioBlob = await generateTTS(fullSentence);
+      const filePath = await saveAudioToFile(card.id, audioBlob);
+      updateFlashcardAudioPath(card.id, filePath);
+
+      const updatedCards = getFlashcardsByDeck(deckId);
+      set({ flashcards: updatedCards.map(mapFlashcard), isGeneratingAudio: false });
+    } catch (e) {
+      console.warn("TTS generation failed, card saved without audio:", e);
+      set({ isGeneratingAudio: false });
+    }
   },
 
   editFlashcard: (flashcardId, data) => {
@@ -104,5 +157,21 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
     deleteFlashcard(flashcardId);
     const cards = getFlashcardsByDeck(deckId);
     set({ flashcards: cards.map(mapFlashcard) });
+    useVocabularyStore.getState().loadLocalData();
+  },
+
+  removeDeck: () => {
+    const { deckId } = get();
+    if (!deckId) return;
+    deleteDeckFromDB(deckId);
+    useVocabularyStore.getState().loadLocalData();
+  },
+
+  updateDeck: (name, description) => {
+    const { deckId } = get();
+    if (!deckId) return;
+    updateDeckFromDB(deckId, { name, description: description ?? undefined });
+    set({ deckName: name, deckDescription: description ?? null });
+    useVocabularyStore.getState().loadLocalData();
   },
 }));

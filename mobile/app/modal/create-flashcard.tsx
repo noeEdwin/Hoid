@@ -8,10 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDeckDetailStore } from "../../stores/useDeckDetailStore";
+import { useReviewStore } from "../../stores/useReviewStore";
 import { getFlashcardById } from "../../lib/database";
 import { normalize, Dimens } from "../../lib/dimens";
 
@@ -21,7 +23,8 @@ export default function CreateFlashcardModal() {
     flashcardId?: string;
   }>();
   const router = useRouter();
-  const { addFlashcard, editFlashcard } = useDeckDetailStore();
+  const { addFlashcard, editFlashcard, isGeneratingAudio } = useDeckDetailStore();
+  const injectCard = useReviewStore((s) => s.injectCard);
 
   const isEditing = !!flashcardId;
 
@@ -31,6 +34,7 @@ export default function CreateFlashcardModal() {
   const [answerPinyin, setAnswerPinyin] = useState("");
   const [context, setContext] = useState("");
   const [contextPinyin, setContextPinyin] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (flashcardId) {
@@ -46,9 +50,9 @@ export default function CreateFlashcardModal() {
     }
   }, [flashcardId]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const trimmedAnswer = answer.trim();
-    if (!trimmedAnswer || !deckId) return;
+    if (!trimmedAnswer || !deckId || isSaving) return;
 
     const data = {
       sentence: sentence.trim() || `___${trimmedAnswer}`,
@@ -59,15 +63,46 @@ export default function CreateFlashcardModal() {
       contextPinyin: contextPinyin.trim() || undefined,
     };
 
+    setIsSaving(true);
+
     if (isEditing && flashcardId) {
       editFlashcard(flashcardId, data);
+      setIsSaving(false);
+      router.back();
     } else {
-      addFlashcard(data);
+      await addFlashcard(data);
+
+      const { flashcards } = useDeckDetailStore.getState();
+      const newCard = flashcards[flashcards.length - 1];
+      if (newCard && deckId) {
+        injectCard({
+          id: newCard.id,
+          deckId,
+          cardType: newCard.cardType,
+          sentence: newCard.sentence,
+          sentencePinyin: newCard.sentencePinyin,
+          answer: newCard.answer,
+          answerPinyin: newCard.answerPinyin,
+          context: newCard.context,
+          contextPinyin: newCard.contextPinyin,
+          imagePath: null,
+          audioPath: newCard.audioPath,
+          srsInterval: 0,
+          easeFactor: 2.5,
+          difficultyScore: 0,
+          totalReviews: 0,
+          totalFailures: 0,
+          consecutiveFailures: 0,
+          consecutiveCorrect: 0,
+        });
+      }
+
+      setIsSaving(false);
+      router.back();
     }
-    router.back();
   };
 
-  const canSave = answer.trim().length > 0;
+  const canSave = answer.trim().length > 0 && !isSaving;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9ff" }} edges={["top"]}>
@@ -87,13 +122,24 @@ export default function CreateFlashcardModal() {
             disabled={!canSave}
             style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
           >
-            <Text
-              style={[styles.saveBtnText, !canSave && styles.saveBtnTextDisabled]}
-            >
-              Save
-            </Text>
+            {isSaving ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text
+                style={[styles.saveBtnText, !canSave && styles.saveBtnTextDisabled]}
+              >
+                Save
+              </Text>
+            )}
           </Pressable>
         </View>
+
+        {isSaving && (
+          <View style={styles.generatingContainer}>
+            <ActivityIndicator size="small" color="#005bbd" />
+            <Text style={styles.generatingText}>Generating audio...</Text>
+          </View>
+        )}
 
         <ScrollView
           contentContainerStyle={styles.form}
@@ -189,6 +235,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
+    minWidth: 60,
+    alignItems: "center",
   },
   saveBtnDisabled: {
     backgroundColor: "#e0e0e0",
@@ -200,6 +248,17 @@ const styles = StyleSheet.create({
   },
   saveBtnTextDisabled: {
     color: "#9e9e9e",
+  },
+  generatingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    gap: 8,
+  },
+  generatingText: {
+    fontSize: normalize(13),
+    color: "#005bbd",
   },
   form: {
     paddingHorizontal: Dimens.padding,

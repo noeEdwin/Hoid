@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import { getAllDecks, getTotalCardCount, getFlashcardCountByDeck } from "../lib/database";
+import {
+  getAllDecks,
+  getTotalCardCount,
+  getFlashcardCountByDeck,
+  deleteDeck as deleteDeckFromDB,
+  updateDeck as updateDeckFromDB,
+} from "../lib/database";
 
 export interface DeckItem {
   id: string;
@@ -26,9 +32,11 @@ interface VocabularyState {
 
   loadDecks: () => void;
   loadLocalData: () => void;
+  deleteDeck: (deckId: string) => void;
+  updateDeck: (deckId: string, name: string, description?: string) => void;
 }
 
-export const useVocabularyStore = create<VocabularyState>((set) => ({
+export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   decks: [],
   failingTokens: [],
   totalCards: 0,
@@ -58,5 +66,15 @@ export const useVocabularyStore = create<VocabularyState>((set) => ({
       })),
       totalCards: total,
     });
+  },
+
+  deleteDeck: (deckId: string) => {
+    deleteDeckFromDB(deckId);
+    get().loadLocalData();
+  },
+
+  updateDeck: (deckId: string, name: string, description?: string) => {
+    updateDeckFromDB(deckId, { name, description: description ?? undefined });
+    get().loadLocalData();
   },
 }));

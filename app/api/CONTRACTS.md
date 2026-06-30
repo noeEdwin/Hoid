@@ -59,6 +59,35 @@ Creates a new deck.
 
 ---
 
+### `PUT /api/decks/{deck_id}`
+
+Updates a deck's name and/or description.
+
+* **HTTP Method:** `PUT`
+* **URL Endpoint:** `/api/decks/{deck_id}`
+
+**Request Body**
+
+```json
+{
+  "name": "HSK 1 Updated",
+  "description": "Updated description"
+}
+```
+
+**Response Body (200 OK)**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "HSK 1 Updated",
+  "description": "Updated description",
+  "created_at": "2026-06-19T10:00:00Z"
+}
+```
+
+---
+
 ### `DELETE /api/decks/{deck_id}`
 
 Deletes a deck and all its flashcards.
@@ -199,7 +228,7 @@ Deletes a flashcard and its associated vocabulary state.
 
 ### `GET /api/decks/{deck_id}/review`
 
-Fetches the current queue of flashcards ready for spaced repetition review. Sorted by difficulty_score descending (hardest first).
+Fetches the current queue of flashcards ready for spaced repetition review. Sorted by difficulty_score descending (hardest first). On mobile, cards are shuffled using a weighted algorithm (70% difficulty + 30% random) to prevent pattern memorization. Failed cards are re-inserted at end of queue with max 3 attempts per card per session.
 
 * **HTTP Method:** `GET`
 * **URL Endpoint:** `/api/decks/{deck_id}/review`
@@ -224,7 +253,8 @@ Fetches the current queue of flashcards ready for spaced repetition review. Sort
       "difficulty_score": 0.85,
       "total_reviews": 5,
       "total_failures": 3,
-      "consecutive_failures": 1
+      "consecutive_failures": 1,
+      "consecutive_correct": 0
     }
   ],
   "total_pending": 12
@@ -371,6 +401,7 @@ Pushes local mobile changes to the backend. Last-write-wins conflict resolution.
       "total_reviews": 5,
       "total_failures": 3,
       "consecutive_failures": 1,
+      "consecutive_correct": 2,
       "difficulty_score": 0.85
     }
   ],
@@ -447,6 +478,7 @@ Returns all backend data modified since the client's last sync timestamp.
       "total_reviews": 5,
       "total_failures": 3,
       "consecutive_failures": 1,
+      "consecutive_correct": 2,
       "difficulty_score": 0.85
     }
   ]
@@ -686,6 +718,35 @@ Returns historical pitch match scores for a specific shadowing media asset.
   "average_score": 0.763
 }
 ```
+
+---
+
+## Module 8: TTS (REST)
+
+### `POST /api/tts`
+
+Generates MP3 audio for a given Chinese text string. Used on flashcard creation to pre-generate audio.
+
+* **HTTP Method:** `POST`
+* **URL Endpoint:** `/api/tts`
+
+**Request Body**
+
+```json
+{
+  "text": "我爱ni"
+}
+```
+
+**Response Body (200 OK)**
+
+* **Content-Type:** `audio/mpeg`
+* **Body:** Binary MP3 audio data
+
+**Error Responses**
+
+* **400 Bad Request** — Empty text
+* **500 Internal Server Error** — TTS generation failed
 
 ---
 

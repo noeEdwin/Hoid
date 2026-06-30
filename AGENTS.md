@@ -74,6 +74,14 @@ tars/
 - User creates custom decks (e.g., "HSK 1", "Travel Phrases")
 - Each deck has a name and optional description
 - Backend seeds a "Starter Deck" with 5 test cards on first run
+- Deck CRUD: create, edit (name/description), delete with confirmation
+- Cards can be added, edited, and deleted within each deck
+
+### Settings
+- Daily review limit configurable (5-100 cards, default 20)
+- Settings persisted to JSON file in `FileSystem.documentDirectory`
+- Settings screen accessible from dashboard header (gear icon)
+- Load settings on app startup
 
 ### Hybrid Local/Backend Split
 - **Flashcard review is local-only** - runs entirely on device, no backend needed
@@ -115,6 +123,13 @@ tars/
 - Pre-defined roleplay scenarios stored in database
 - User selects from list, not AI-generated on the fly
 
+### TTS Audio Generation
+- On flashcard creation, backend generates MP3 audio via edge-tts for the full sentence
+- Audio saved to `FileSystem.documentDirectory/audio/{cardId}.mp3` on mobile
+- `audioPath` field in flashcard schema stores the local file path
+- Falls back to live `expo-speech` if backend is offline or TTS fails
+- Review screen auto-plays stored audio when card is shown
+
 ## Database Schema (SQLModel)
 
 ### Entity 1: Deck (Flashcard Collection)
@@ -144,7 +159,7 @@ Cloze deletion cards: full sentence with blank, answer is missing word in hanzi.
 | `context` | TEXT | | Example sentence or context |
 | `context_pinyin` | TEXT | | Pinyin for context |
 | `image_path` | VARCHAR | | Local image file path |
-| `audio_path` | VARCHAR | | Local audio file path |
+| `audio_path` | VARCHAR | | Local audio file path (auto-generated MP3 on card creation via backend TTS) |
 | `created_at` | TIMESTAMP | | Creation timestamp |
 
 ### Entity 3: User_Vocabulary_State (Mastery Tracker)
@@ -160,6 +175,7 @@ Known Vocabulary Profile and Difficulty Matrix. Tracks personal computational me
 | `total_reviews` | INTEGER | default 0 | Total interactions with this card |
 | `total_failures` | INTEGER | default 0 | Total misses or failed constraints |
 | `consecutive_failures` | INTEGER | default 0 | Current streak of failures |
+| `consecutive_correct` | INTEGER | default 0 | Current streak of correct answers |
 | `difficulty_score` | FLOAT | default 0.0, indexed | 0.0-1.0 difficulty rating |
 
 ### Entity 4: Pending_Review (Offline Queue)
@@ -287,19 +303,35 @@ Shadowing_Media 1:N Shadowing_Attempt
 
 ```mermaid
 flowchart TD
-    UI[Frontend UI] -->|User answers card| PC[Pipeline Controller]
-    PC -->|Run SRS Algorithm| DB[(Local Database)]
-    DB -->|Update Difficulty + Known Vocab Matrix| DB
-    DB -->|Return next card| UI
+    UI[Frontend UI] -->|User taps Start Review| SQ[Shuffle Queue]
+    SQ -->|Weighted: 70% difficulty + 30% random| QC[Queue: remaining cards]
+    QC -->|Show first card| AP[Auto-play audio]
+    AP -->|User types answer| CH{Correct?}
+    CH -->|Yes| MV[Move to completed]
+    CH -->|No + attempts < 3| RE[Re-insert at end of queue]
+    CH -->|No + attempts >= 3| FL[Move to failed cards]
+    MV --> NC{More cards?}
+    RE --> NC
+    FL --> NC
+    NC -->|Yes| QC
+    NC -->|No| Done[Session Complete]
 ```
 
-1. User views cloze deletion card with sentence blank
-2. User types missing word in hanzi
-3. Auto-rating: correct → "good", incorrect → "hard" (no manual buttons)
-4. Pipeline Controller calculates new interval and difficulty metrics locally
-5. Metrics written immediately to Local Database (crash resilience)
-6. Next scheduled card pulled from database, screen updates
-7. Entire process takes < 10ms
+1. User taps "Start Review" on a deck
+2. Cards fetched from local SQLite via `getDueCards()` (INNER JOIN, ordered by difficultyScore)
+3. **Weighted shuffle** applied: 70% difficulty-weighted + 30% random to prevent pattern memorization
+4. Card audio auto-plays when shown (stored MP3 via `expo-audio`, falls back to `expo-speech`)
+5. User types missing word in hanzi, submits
+6. Auto-rating: correct → "good", incorrect → "hard" (no manual buttons)
+7. **If correct**: card moves to `completed[]`, attempt counter resets
+8. **If incorrect + attempts < 3**: card re-inserted at end of `remaining[]` queue
+9. **If incorrect + attempts >= 3**: card moves to `failedCards[]`, skipped for rest of session
+10. Vocab state updated immediately: `totalReviews`, `totalFailures`, `consecutiveFailures`, `consecutiveCorrect`
+11. Pending review written to `pending_review` table for sync
+12. Session completes when `remaining[]` is empty
+13. Completion screen shows card count + number of failed cards needing practice
+14. New cards injected via `injectCard()` for immediate availability in active sessions
+15. Entire process takes < 10ms per card (local SQLite)
 
 ### Workflow B.1: Roleplay Session (Fluency + Grammar)
 

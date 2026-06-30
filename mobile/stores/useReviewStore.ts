@@ -1,5 +1,76 @@
 import { create } from "zustand";
+import { Paths, File, Directory } from "expo-file-system";
 import { getDueCards, addPendingReview, getVocabularyState, updateVocabularyState } from "../lib/database";
+import { useSettingsStore } from "./useSettingsStore";
+
+const MAX_ATTEMPTS_PER_CARD = 3;
+const SESSION_DIR_NAME = "review-sessions";
+
+function getSessionDir(): Directory {
+  const dir = new Directory(Paths.document, SESSION_DIR_NAME);
+  if (!dir.exists) {
+    dir.create();
+  }
+  return dir;
+}
+
+function getSessionFile(deckId: string): File {
+  return new File(getSessionDir(), `${deckId}.json`);
+}
+
+interface SavedSession {
+  remaining: ReviewCard[];
+  completed: ReviewCard[];
+  failedCards: ReviewCard[];
+  missedCardIds: string[];
+  attemptCountEntries: [string, number][];
+  savedAt: number;
+}
+
+function saveSessionToFile(deckId: string, state: {
+  remaining: ReviewCard[];
+  completed: ReviewCard[];
+  failedCards: ReviewCard[];
+  missedCardIds: Set<string>;
+  attemptCount: Map<string, number>;
+}): void {
+  const data: SavedSession = {
+    remaining: state.remaining,
+    completed: state.completed,
+    failedCards: state.failedCards,
+    missedCardIds: Array.from(state.missedCardIds),
+    attemptCountEntries: Array.from(state.attemptCount.entries()),
+    savedAt: Date.now(),
+  };
+  const file = getSessionFile(deckId);
+  file.write(JSON.stringify(data));
+}
+
+function loadSessionFromFile(deckId: string): SavedSession | null {
+  try {
+    const file = getSessionFile(deckId);
+    if (!file.exists) return null;
+    const content = file.textSync();
+    const data = JSON.parse(content) as SavedSession;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    if (data.savedAt < oneHourAgo) {
+      file.delete();
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function deleteSessionFile(deckId: string): void {
+  try {
+    const file = getSessionFile(deckId);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {}
+}
 
 export interface ReviewCard {
   id: string;
@@ -23,20 +94,36 @@ export interface ReviewCard {
 }
 
 interface ReviewState {
-  queue: ReviewCard[];
-  currentIndex: number;
+  remaining: ReviewCard[];
+  completed: ReviewCard[];
+  failedCards: ReviewCard[];
+  missedCardIds: Set<string>;
+  attemptCount: Map<string, number>;
   deckId: string | null;
   isComplete: boolean;
   showResult: boolean;
   lastResultCorrect: boolean;
   cardStartTime: number;
+  sessionStartTime: number;
+  answeredCount: number;
 
   loadQueue: (deckId: string) => void;
+  injectCard: (card: ReviewCard) => void;
   submitAnswer: (isCorrect: boolean) => void;
   dismissResult: () => void;
   resetSession: () => void;
+  saveSession: () => void;
+  clearSession: (deckId: string) => void;
   getCurrentCard: () => ReviewCard | null;
-  getProgress: () => { current: number; total: number };
+  getProgress: () => {
+    current: number;
+    total: number;
+    completedCount: number;
+    failedCount: number;
+    missedCount: number;
+    accuracy: number;
+    elapsedSeconds: number;
+  };
 }
 
 function mapLocalItem(item: any, deckId: string): ReviewCard {
@@ -62,31 +149,82 @@ function mapLocalItem(item: any, deckId: string): ReviewCard {
   };
 }
 
+function weightedShuffle(cards: ReviewCard[]): ReviewCard[] {
+  const maxDifficulty = Math.max(...cards.map((c) => c.difficultyScore), 1);
+
+  const weighted = cards.map((card) => ({
+    card,
+    weight: Math.random() * (0.3 + 0.7 * (card.difficultyScore / maxDifficulty)),
+  }));
+
+  weighted.sort((a, b) => b.weight - a.weight);
+
+  return weighted.map((w) => w.card);
+}
+
 export const useReviewStore = create<ReviewState>((set, get) => ({
-  queue: [],
-  currentIndex: 0,
+  remaining: [],
+  completed: [],
+  failedCards: [],
+  missedCardIds: new Set(),
+  attemptCount: new Map(),
   deckId: null,
   isComplete: false,
   showResult: false,
   lastResultCorrect: false,
   cardStartTime: Date.now(),
+  sessionStartTime: Date.now(),
+  answeredCount: 0,
 
   loadQueue: (deckId: string) => {
-    const items = getDueCards(deckId, 20);
+    const now = Date.now();
+    const saved = loadSessionFromFile(deckId);
+    if (saved && (saved.remaining.length > 0 || saved.completed.length > 0)) {
+      set({
+        remaining: saved.remaining,
+        completed: saved.completed,
+        failedCards: saved.failedCards,
+        missedCardIds: new Set(saved.missedCardIds ?? []),
+        attemptCount: new Map(saved.attemptCountEntries),
+        deckId,
+        isComplete: saved.remaining.length === 0,
+        showResult: false,
+        cardStartTime: now,
+        sessionStartTime: saved.savedAt,
+        answeredCount: 0,
+      });
+      return;
+    }
+
+    const limit = useSettingsStore.getState().dailyReviewLimit;
+    const items = getDueCards(deckId, limit);
     const cards = items.map((item) => mapLocalItem(item, deckId));
+    const shuffled = weightedShuffle(cards);
+
     set({
-      queue: cards,
-      currentIndex: 0,
+      remaining: shuffled,
+      completed: [],
+      failedCards: [],
+      missedCardIds: new Set(),
+      attemptCount: new Map(),
       deckId,
-      isComplete: cards.length === 0,
+      isComplete: shuffled.length === 0,
       showResult: false,
-      cardStartTime: Date.now(),
+      cardStartTime: now,
+      sessionStartTime: now,
+      answeredCount: 0,
     });
   },
 
+  injectCard: (card: ReviewCard) => {
+    const { remaining } = get();
+    if (remaining.some((c) => c.id === card.id)) return;
+    set({ remaining: [...remaining, card], isComplete: false });
+  },
+
   submitAnswer: (isCorrect: boolean) => {
-    const { queue, currentIndex } = get();
-    const card = queue[currentIndex];
+    const { remaining, attemptCount, missedCardIds } = get();
+    const card = remaining[0];
     if (!card) return;
 
     const responseTimeMs = Date.now() - get().cardStartTime;
@@ -111,37 +249,101 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       });
     }
 
-    set({
-      showResult: true,
-      lastResultCorrect: isCorrect,
-    });
+    const currentAttempts = attemptCount.get(card.id) ?? 0;
+    const newMissed = new Set(missedCardIds);
+
+    if (!isCorrect) {
+      newMissed.add(card.id);
+    }
+
+    if (isCorrect) {
+      const newAttemptCount = new Map(attemptCount);
+      newAttemptCount.delete(card.id);
+
+      set((s) => ({
+        remaining: s.remaining.slice(1),
+        completed: [...s.completed, card],
+        missedCardIds: newMissed,
+        attemptCount: newAttemptCount,
+        showResult: true,
+        lastResultCorrect: true,
+        answeredCount: s.answeredCount + 1,
+      }));
+    } else {
+      const newAttempts = currentAttempts + 1;
+      const newAttemptCount = new Map(attemptCount);
+      newAttemptCount.set(card.id, newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS_PER_CARD) {
+        set((s) => ({
+          remaining: s.remaining.slice(1),
+          failedCards: [...s.failedCards, card],
+          missedCardIds: newMissed,
+          attemptCount: newAttemptCount,
+          showResult: true,
+          lastResultCorrect: false,
+          answeredCount: s.answeredCount + 1,
+        }));
+      } else {
+        const rest = remaining.slice(1);
+        const updatedCard = { ...card };
+        set((s) => ({
+          remaining: [...rest, updatedCard],
+          missedCardIds: newMissed,
+          attemptCount: newAttemptCount,
+          showResult: true,
+          lastResultCorrect: false,
+          answeredCount: s.answeredCount + 1,
+        }));
+      }
+    }
   },
 
   dismissResult: () => {
-    const { currentIndex, queue } = get();
-    const nextIndex = currentIndex + 1;
+    const { remaining, deckId, completed, failedCards, missedCardIds, attemptCount } = get();
     set({
-      currentIndex: nextIndex,
       showResult: false,
-      isComplete: nextIndex >= queue.length,
+      isComplete: remaining.length === 0,
       cardStartTime: Date.now(),
     });
+    if (deckId && remaining.length > 0) {
+      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount });
+    }
   },
 
   resetSession: () => {
     const { deckId } = get();
     if (deckId) {
+      deleteSessionFile(deckId);
       get().loadQueue(deckId);
     }
   },
 
+  saveSession: () => {
+    const { deckId, remaining, completed, failedCards, missedCardIds, attemptCount } = get();
+    if (deckId && remaining.length > 0) {
+      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount });
+    }
+  },
+
+  clearSession: (deckId: string) => {
+    deleteSessionFile(deckId);
+  },
+
   getCurrentCard: () => {
-    const { queue, currentIndex } = get();
-    return queue[currentIndex] ?? null;
+    const { remaining } = get();
+    return remaining[0] ?? null;
   },
 
   getProgress: () => {
-    const { queue, currentIndex } = get();
-    return { current: currentIndex, total: queue.length };
+    const { completed, failedCards, missedCardIds, remaining, sessionStartTime, answeredCount } = get();
+    const total = completed.length + failedCards.length + remaining.length;
+    const current = answeredCount;
+    const completedCount = completed.length;
+    const failedCount = failedCards.length;
+    const missedCount = missedCardIds.size;
+    const accuracy = current > 0 ? Math.round((completedCount / current) * 100) : 0;
+    const elapsedSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+    return { current, total, completedCount, failedCount, missedCount, accuracy, elapsedSeconds };
   },
 }));

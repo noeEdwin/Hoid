@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,20 +8,43 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createDeck } from "../../lib/database";
+import { createDeck, getDeckById } from "../../lib/database";
+import { useVocabularyStore } from "../../stores/useVocabularyStore";
 import { normalize, Dimens } from "../../lib/dimens";
 
 export default function CreateDeckModal() {
   const router = useRouter();
+  const { deckId } = useLocalSearchParams<{ deckId?: string }>();
+  const loadLocalData = useVocabularyStore((s) => s.loadLocalData);
+
+  const isEditing = !!deckId;
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  const handleCreate = () => {
+  useEffect(() => {
+    if (deckId) {
+      const deck = getDeckById(deckId);
+      if (deck) {
+        setName(deck.name);
+        setDescription(deck.description ?? "");
+      }
+    }
+  }, [deckId]);
+
+  const handleSave = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    createDeck(trimmed, description.trim() || undefined);
+
+    if (isEditing && deckId) {
+      const { updateDeck } = require("../../stores/useVocabularyStore").useVocabularyStore.getState();
+      updateDeck(deckId, trimmed, description.trim() || undefined);
+    } else {
+      createDeck(trimmed, description.trim() || undefined);
+    }
+    loadLocalData();
     router.back();
   };
 
@@ -35,9 +58,11 @@ export default function CreateDeckModal() {
           <Pressable onPress={() => router.back()} style={styles.cancelBtn}>
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
-          <Text style={styles.title}>New Deck</Text>
+          <Text style={styles.title}>
+            {isEditing ? "Edit Deck" : "New Deck"}
+          </Text>
           <Pressable
-            onPress={handleCreate}
+            onPress={handleSave}
             disabled={!name.trim()}
             style={[styles.createBtn, !name.trim() && styles.createBtnDisabled]}
           >
@@ -47,7 +72,7 @@ export default function CreateDeckModal() {
                 !name.trim() && styles.createBtnTextDisabled,
               ]}
             >
-              Create
+              {isEditing ? "Save" : "Create"}
             </Text>
           </Pressable>
         </View>

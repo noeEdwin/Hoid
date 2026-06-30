@@ -123,24 +123,6 @@ def sync_push(
         if _upsert_vocab_state(session, vs_item):
             states_upserted += 1
 
-    for review_item in data.pending_reviews:
-        state = session.exec(
-            select(UserVocabularyState).where(
-                UserVocabularyState.flashcard_id == review_item.flashcard_id
-            )
-        ).first()
-        if state:
-            state.total_reviews += 1
-            if not review_item.is_correct:
-                state.total_failures += 1
-                state.consecutive_failures += 1
-                state.consecutive_correct = 0
-            else:
-                state.consecutive_failures = 0
-                state.consecutive_correct += 1
-            session.add(state)
-            reviews_processed += 1
-
     log = SyncLog(
         direction="push",
         flashcards_upserted=flashcards_upserted,

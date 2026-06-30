@@ -26,6 +26,15 @@ jest.mock("../../data/starter-deck.json", () => [
   { sentence: "我___你谢谢", sentence_pinyin: "wǒ gǎnxiè nǐ", answer: "感谢", answer_pinyin: "gǎnxiè", context: "thanks", context_pinyin: "thanks" },
 ]);
 
+jest.mock("../../data/hsk-course.json", () => ({
+  "Clothing & Shopping": [
+    { sentence: "这件___多少钱？", sentence_pinyin: "zhè jiàn chènshān duōshǎo qián?", answer: "衬衫", answer_pinyin: "chènshān", context: "shirts", context_pinyin: "chènshān" },
+  ],
+  "Food & Taste": [
+    { sentence: "吃___对身体有帮助吗？", sentence_pinyin: "chī jīdàn duì shēntǐ yǒu bāngzhù ma?", answer: "鸡蛋", answer_pinyin: "jīdàn", context: "eggs", context_pinyin: "jīdàn" },
+  ],
+}));
+
 const mockDb = {
   select: jest.fn(),
   insert: jest.fn(),
@@ -281,28 +290,43 @@ describe("deleteFlashcard", () => {
   });
 });
 
-describe("seedLocalDeck", () => {
-  it("creates deck with seed cards", () => {
+describe("seedHSKCourse", () => {
+  it("creates topic decks when they don't exist", () => {
     const selectChain = setupMockChain(undefined);
     mockDb.select.mockReturnValue(selectChain);
 
     const insertChain = setupMockChain(undefined);
     mockDb.insert.mockReturnValue(insertChain);
 
-    const { seedLocalDeck } = require("../database");
-    seedLocalDeck();
+    const { seedHSKCourse } = require("../database");
+    seedHSKCourse();
 
     expect(mockDb.insert).toHaveBeenCalled();
   });
 
-  it("is idempotent (checks by name)", () => {
-    const existingDeck = { id: "existing", name: "Starter Deck" };
+  it("skips existing topic decks", () => {
+    const existingDeck = { id: "existing", name: "Clothing & Shopping" };
     const selectChain = setupMockChain(existingDeck);
     mockDb.select.mockReturnValue(selectChain);
 
-    const { seedLocalDeck } = require("../database");
-    seedLocalDeck();
+    const { seedHSKCourse } = require("../database");
+    seedHSKCourse();
 
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
+
+  it("creates master HSK Course deck", () => {
+    const selectChain = setupMockChain(undefined);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const insertChain = setupMockChain(undefined);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const { seedHSKCourse } = require("../database");
+    seedHSKCourse();
+
+    expect(mockDb.insert).toHaveBeenCalled();
+  });
 });
+
+

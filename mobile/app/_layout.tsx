@@ -3,11 +3,15 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { performSync } from "../lib/sync";
-import { seedLocalDeck } from "../lib/database";
+import { seedHSKCourse } from "../lib/database";
+import { useSettingsStore } from "../stores/useSettingsStore";
 
 export default function RootLayout() {
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+
   useEffect(() => {
-    seedLocalDeck();
+    loadSettings();
+    seedHSKCourse();
     performSync();
   }, []);
 

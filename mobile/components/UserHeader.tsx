@@ -1,4 +1,5 @@
-import { View, Text, Image } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { normalize, Dimens } from "../lib/dimens";
 
 interface UserHeaderProps {
@@ -12,6 +13,8 @@ export default function UserHeader({
   totalCards = 0,
   streak = 0,
 }: UserHeaderProps) {
+  const router = useRouter();
+
   return (
     <View className="flex-row items-center justify-between px-6 pt-14 pb-4">
       <View className="flex-row items-center gap-3">
@@ -34,10 +37,18 @@ export default function UserHeader({
           </Text>
         </View>
       </View>
-      <View className="bg-surfaceContainerHigh px-3.5 py-2 rounded-full">
-        <Text className="text-xs font-medium text-neutral-900" allowFontScaling={false}>
-          🔥 {streak} Day Streak
-        </Text>
+      <View className="flex-row items-center gap-2">
+        <View className="bg-surfaceContainerHigh px-3.5 py-2 rounded-full">
+          <Text className="text-xs font-medium text-neutral-900" allowFontScaling={false}>
+            🔥 {streak} Day Streak
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => router.push("/(tabs)/settings")}
+          className="bg-surfaceContainerHigh w-9 h-9 rounded-full items-center justify-center"
+        >
+          <Text style={{ fontSize: normalize(16) }}>⚙️</Text>
+        </Pressable>
       </View>
     </View>
   );

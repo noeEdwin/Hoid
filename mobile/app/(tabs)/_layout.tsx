@@ -12,6 +12,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" options={{ title: "学习" }} />
       <Tabs.Screen name="practice" options={{ title: "练习" }} />
       <Tabs.Screen name="progress" options={{ title: "进步" }} />
+      <Tabs.Screen name="settings" options={{ title: "设置" }} />
     </Tabs>
   );
 }

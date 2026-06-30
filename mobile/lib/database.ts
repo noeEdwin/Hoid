@@ -2,7 +2,7 @@ import * as SQLite from "expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { eq, desc } from "drizzle-orm";
 import * as crypto from "expo-crypto";
-import starterDeck from "../data/starter-deck.json";
+import hskCourse from "../data/hsk-course.json";
 import {
   deck,
   flashcard,
@@ -113,35 +113,69 @@ export function getDb() {
   return _db;
 }
 
-export function seedLocalDeck(): void {
+export function seedHSKCourse(): void {
   const db = getDb();
-  const existing = db.select().from(deck).where(eq(deck.name, "Starter Deck")).get();
-  if (existing) return;
 
-  const id = uuid();
-  db.insert(deck)
-    .values({ id, name: "Starter Deck", description: "Initial cloze deletion cards" })
-    .run();
+  for (const [topic, cards] of Object.entries(hskCourse)) {
+    const existing = db.select().from(deck).where(eq(deck.name, topic)).get();
+    if (existing) continue;
 
-  for (const card of starterDeck) {
-    const cardId = uuid();
-    db.insert(flashcard)
-      .values({
-        id: cardId,
-        deckId: id,
-        cardType: "cloze_deletion",
-        sentence: card.sentence,
-        sentencePinyin: card.sentence_pinyin,
-        answer: card.answer,
-        answerPinyin: card.answer_pinyin,
-        context: card.context,
-        contextPinyin: card.context_pinyin,
-        imagePath: (card as any).image_path ?? null,
-      })
+    const deckId = uuid();
+    db.insert(deck)
+      .values({ id: deckId, name: topic, description: `HSK vocabulary: ${topic}` })
       .run();
-    db.insert(userVocabularyState)
-      .values({ id: uuid(), flashcardId: cardId })
+
+    for (const card of cards) {
+      const cardId = uuid();
+      db.insert(flashcard)
+        .values({
+          id: cardId,
+          deckId,
+          cardType: "cloze_deletion",
+          sentence: card.sentence,
+          sentencePinyin: card.sentence_pinyin,
+          answer: card.answer,
+          answerPinyin: card.answer_pinyin,
+          context: card.context,
+          contextPinyin: card.context_pinyin,
+          imagePath: card.image_path,
+        })
+        .run();
+      db.insert(userVocabularyState)
+        .values({ id: uuid(), flashcardId: cardId })
+        .run();
+    }
+  }
+
+  const masterExisting = db.select().from(deck).where(eq(deck.name, "HSK Course")).get();
+  if (!masterExisting) {
+    const masterDeckId = uuid();
+    db.insert(deck)
+      .values({ id: masterDeckId, name: "HSK Course", description: "All HSK vocabulary cards" })
       .run();
+
+    for (const [topic, cards] of Object.entries(hskCourse)) {
+      for (const card of cards) {
+        const cardId = uuid();
+        db.insert(flashcard)
+          .values({
+            id: cardId,
+            deckId: masterDeckId,
+            cardType: "cloze_deletion",
+            sentence: card.sentence,
+            sentencePinyin: card.sentence_pinyin,
+            answer: card.answer,
+            answerPinyin: card.answer_pinyin,
+            context: card.context,
+            contextPinyin: card.context_pinyin,
+            imagePath: card.image_path,
+          })
+          .run();
+        db.insert(userVocabularyState)
+          .values({ id: uuid(), flashcardId: cardId })
+          .run();
+      }
+    }
   }
 }
 
@@ -216,6 +250,9 @@ export function createFlashcard(data: {
       audioPath: data.audioPath ?? null,
     })
     .run();
+  db.insert(userVocabularyState)
+    .values({ id: uuid(), flashcardId: id })
+    .run();
   return getFlashcardById(id);
 }
 
@@ -251,6 +288,36 @@ export function deleteFlashcard(id: string) {
   db.delete(flashcard)
     .where(eq(flashcard.id, id))
     .run();
+}
+
+export function deleteDeck(id: string) {
+  const db = getDb();
+  const cards = getFlashcardsByDeck(id);
+  for (const card of cards) {
+    deleteFlashcard(card.id);
+  }
+  db.delete(deck).where(eq(deck.id, id)).run();
+}
+
+export function updateDeck(
+  id: string,
+  updates: Partial<{ name: string; description: string }>
+) {
+  const db = getDb();
+  db.update(deck)
+    .set(updates)
+    .where(eq(deck.id, id))
+    .run();
+  return getDeckById(id);
+}
+
+export function updateFlashcardAudioPath(id: string, audioPath: string) {
+  const db = getDb();
+  db.update(flashcard)
+    .set({ audioPath })
+    .where(eq(flashcard.id, id))
+    .run();
+  return getFlashcardById(id);
 }
 
 export function getVocabularyState(flashcardId: string) {

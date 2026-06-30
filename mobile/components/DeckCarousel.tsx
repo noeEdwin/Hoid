@@ -8,6 +8,7 @@ interface DeckItem {
   name: string;
   description: string | null;
   cardCount: number;
+  isReviewedToday?: boolean;
 }
 
 interface DeckCarouselProps {
@@ -37,6 +38,7 @@ export default function DeckCarousel({ decks, onStartReview }: DeckCarouselProps
             name={item.name}
             description={item.description}
             cardCount={item.cardCount}
+            isReviewedToday={item.isReviewedToday}
             onStartReview={onStartReview}
           />
         )}
