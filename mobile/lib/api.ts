@@ -1,4 +1,4 @@
-const API_BASE = "http://192.168.3.11:8000";
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.3.11:8000";
 
 export interface ApiDeck {
   id: string;
@@ -167,6 +167,7 @@ export interface SyncDeckItem {
   name: string;
   description: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface SyncFlashcardItem {
@@ -182,6 +183,7 @@ export interface SyncFlashcardItem {
   image_path: string | null;
   audio_path: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface SyncVocabStateItem {
@@ -193,6 +195,7 @@ export interface SyncVocabStateItem {
   consecutive_failures: number;
   consecutive_correct: number;
   difficulty_score: number;
+  updated_at?: string;
 }
 
 export interface SyncPendingReviewItem {

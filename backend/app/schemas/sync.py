@@ -11,6 +11,7 @@ class SyncDeckItem(BaseModel):
     name: str
     description: Optional[str] = None
     created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class SyncFlashcardItem(BaseModel):
@@ -26,6 +27,7 @@ class SyncFlashcardItem(BaseModel):
     image_path: Optional[str] = None
     audio_path: Optional[str] = None
     created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class SyncVocabStateItem(BaseModel):
@@ -37,6 +39,7 @@ class SyncVocabStateItem(BaseModel):
     consecutive_failures: int = 0
     consecutive_correct: int = 0
     difficulty_score: float = 0.0
+    updated_at: Optional[str] = None
 
 
 class SyncPendingReviewItem(BaseModel):

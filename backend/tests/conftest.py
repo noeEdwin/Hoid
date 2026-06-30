@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
@@ -8,7 +9,6 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
-from app.main import app
 from app.core.database import get_session
 from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 
@@ -30,9 +30,12 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     def _override_session() -> Generator[Session, None, None]:
         yield db_session
 
+    from app.main import app
+
     app.dependency_overrides[get_session] = _override_session
-    with TestClient(app) as c:
-        yield c
+    with patch("app.main._seed_flashcards"), patch("app.main._seed_scenarios"):
+        with TestClient(app) as c:
+            yield c
     app.dependency_overrides.clear()
 
 

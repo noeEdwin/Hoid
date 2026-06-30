@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
@@ -10,6 +10,7 @@ from app.core.database import get_session
 from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 from app.schemas.flashcard import (
     DeckCreate,
+    DeckListResponse,
     DeckResponse,
     FlashcardCreate,
     FlashcardListResponse,
@@ -34,12 +35,12 @@ from app.services.srs import (
 router = APIRouter(tags=["flashcards"])
 
 
-@router.get("/decks", response_model=list[DeckResponse])
+@router.get("/decks", response_model=DeckListResponse)
 def list_decks(
     session: Session = Depends(get_session),
-) -> list[DeckResponse]:
+) -> DeckListResponse:
     decks = list(session.exec(select(Deck)).all())
-    return [DeckResponse.model_validate(d) for d in decks]
+    return DeckListResponse(decks=[DeckResponse.model_validate(d) for d in decks])
 
 
 @router.post("/decks", response_model=DeckResponse, status_code=201)
@@ -48,6 +49,24 @@ def create_deck(
     session: Session = Depends(get_session),
 ) -> DeckResponse:
     deck = Deck(name=data.name, description=data.description)
+    session.add(deck)
+    session.commit()
+    session.refresh(deck)
+    return DeckResponse.model_validate(deck)
+
+
+@router.put("/decks/{deck_id}", response_model=DeckResponse)
+def update_deck(
+    deck_id: uuid.UUID,
+    data: DeckCreate,
+    session: Session = Depends(get_session),
+) -> DeckResponse:
+    deck = session.get(Deck, str(deck_id))
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    deck.name = data.name
+    deck.description = data.description
+    deck.updated_at = datetime.utcnow()
     session.add(deck)
     session.commit()
     session.refresh(deck)
@@ -165,8 +184,6 @@ def get_review_queue(
     limit: int = Query(20, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> ReviewQueueResponse:
-    from sqlalchemy import func, outerjoin
-
     flashcards = list(
         session.exec(
             select(Flashcard).where(Flashcard.deck_id == str(deck_id))
@@ -247,6 +264,7 @@ def submit_review(
         state.consecutive_failures += 1
     else:
         state.consecutive_failures = 0
+    state.updated_at = datetime.utcnow()
 
     session.add(state)
     session.commit()

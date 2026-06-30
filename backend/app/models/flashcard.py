@@ -1,21 +1,12 @@
 import uuid
-from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import SQLModel, Field, Relationship
 
 
-class BaseFlashcard(ABC):
-    @property
-    @abstractmethod
-    def front(self) -> str:
-        ...
-
-    @property
-    @abstractmethod
-    def back(self) -> str:
-        ...
+def _utcnow() -> datetime:
+    return datetime.utcnow()
 
 
 class Deck(SQLModel, table=True):
@@ -24,12 +15,13 @@ class Deck(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow, sa_column_kwargs={"onupdate": _utcnow})
 
     flashcards: list["Flashcard"] = Relationship(back_populates="deck")
 
 
-class Flashcard(SQLModel, BaseFlashcard, table=True):
+class Flashcard(SQLModel, table=True):
     __tablename__ = "flashcard"
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -44,20 +36,13 @@ class Flashcard(SQLModel, BaseFlashcard, table=True):
     context_pinyin: Optional[str] = None
     image_path: Optional[str] = None
     audio_path: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow, sa_column_kwargs={"onupdate": _utcnow})
 
     deck: Optional[Deck] = Relationship(back_populates="flashcards")
     vocabulary_state: Optional["UserVocabularyState"] = Relationship(
         back_populates="flashcard"
     )
-
-    @property
-    def front(self) -> str:
-        return self.sentence or ""
-
-    @property
-    def back(self) -> str:
-        return self.answer or ""
 
 
 class UserVocabularyState(SQLModel, table=True):
@@ -72,5 +57,6 @@ class UserVocabularyState(SQLModel, table=True):
     consecutive_failures: int = Field(default=0)
     consecutive_correct: int = Field(default=0)
     difficulty_score: float = Field(default=0.0, index=True)
+    updated_at: datetime = Field(default_factory=_utcnow, sa_column_kwargs={"onupdate": _utcnow})
 
     flashcard: Optional[Flashcard] = Relationship(back_populates="vocabulary_state")

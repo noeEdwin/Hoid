@@ -1,7 +1,8 @@
 import * as SQLite from "expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, gt, or, count } from "drizzle-orm";
 import * as crypto from "expo-crypto";
+import { File, Paths } from "expo-file-system";
 import hskCourse from "../data/hsk-course.json";
 import {
   deck,
@@ -11,7 +12,7 @@ import {
 } from "./schema";
 
 const DB_NAME = "tars.db";
-const CURRENT_SCHEMA_VERSION = 3;
+const CURRENT_SCHEMA_VERSION = 4;
 
 let _sqlite: ReturnType<typeof SQLite.openDatabaseSync> | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -19,6 +20,10 @@ let _initialized = false;
 
 function uuid(): string {
   return crypto.randomUUID();
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
 function getSqlite(): ReturnType<typeof SQLite.openDatabaseSync> {
@@ -31,6 +36,8 @@ function getSqlite(): ReturnType<typeof SQLite.openDatabaseSync> {
 function ensureInitialized(): void {
   if (_initialized) return;
   const sqlite = getSqlite();
+
+  sqlite.execSync("PRAGMA foreign_keys = ON");
 
   const versionRow = sqlite.getFirstSync<{ user_version: number }>(
     "PRAGMA user_version"
@@ -48,7 +55,8 @@ function ensureInitialized(): void {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT
       );
     `);
 
@@ -66,6 +74,7 @@ function ensureInitialized(): void {
         image_path TEXT,
         audio_path TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT,
         FOREIGN KEY (deck_id) REFERENCES deck(id)
       );
     `);
@@ -81,6 +90,7 @@ function ensureInitialized(): void {
         consecutive_failures INTEGER DEFAULT 0,
         consecutive_correct INTEGER DEFAULT 0,
         difficulty_score REAL DEFAULT 0.0,
+        updated_at TEXT,
         FOREIGN KEY (flashcard_id) REFERENCES flashcard(id)
       );
     `);
@@ -146,37 +156,6 @@ export function seedHSKCourse(): void {
         .run();
     }
   }
-
-  const masterExisting = db.select().from(deck).where(eq(deck.name, "HSK Course")).get();
-  if (!masterExisting) {
-    const masterDeckId = uuid();
-    db.insert(deck)
-      .values({ id: masterDeckId, name: "HSK Course", description: "All HSK vocabulary cards" })
-      .run();
-
-    for (const [topic, cards] of Object.entries(hskCourse)) {
-      for (const card of cards) {
-        const cardId = uuid();
-        db.insert(flashcard)
-          .values({
-            id: cardId,
-            deckId: masterDeckId,
-            cardType: "cloze_deletion",
-            sentence: card.sentence,
-            sentencePinyin: card.sentence_pinyin,
-            answer: card.answer,
-            answerPinyin: card.answer_pinyin,
-            context: card.context,
-            contextPinyin: card.context_pinyin,
-            imagePath: card.image_path,
-          })
-          .run();
-        db.insert(userVocabularyState)
-          .values({ id: uuid(), flashcardId: cardId })
-          .run();
-      }
-    }
-  }
 }
 
 export function getAllDecks() {
@@ -192,22 +171,14 @@ export function getDeckById(id: string) {
 export function createDeck(name: string, description?: string) {
   const db = getDb();
   const id = uuid();
+  const now = nowIso();
   db.insert(deck)
-    .values({ id, name, description: description ?? null })
+    .values({ id, name, description: description ?? null, createdAt: now, updatedAt: now })
     .run();
   return getDeckById(id);
 }
 
 export function getFlashcardsByDeck(deckId: string) {
-  const db = getDb();
-  return db
-    .select()
-    .from(flashcard)
-    .where(eq(flashcard.deckId, deckId))
-    .all();
-}
-
-export function getFlashcardsByDeckSimple(deckId: string) {
   const db = getDb();
   return db
     .select()
@@ -235,6 +206,7 @@ export function createFlashcard(data: {
 }) {
   const db = getDb();
   const id = uuid();
+  const now = nowIso();
   db.insert(flashcard)
     .values({
       id,
@@ -248,10 +220,12 @@ export function createFlashcard(data: {
       contextPinyin: data.contextPinyin ?? null,
       imagePath: data.imagePath ?? null,
       audioPath: data.audioPath ?? null,
+      createdAt: now,
+      updatedAt: now,
     })
     .run();
   db.insert(userVocabularyState)
-    .values({ id: uuid(), flashcardId: id })
+    .values({ id: uuid(), flashcardId: id, updatedAt: now })
     .run();
   return getFlashcardById(id);
 }
@@ -271,7 +245,7 @@ export function updateFlashcard(
 ) {
   const db = getDb();
   db.update(flashcard)
-    .set(updates)
+    .set({ ...updates, updatedAt: nowIso() })
     .where(eq(flashcard.id, id))
     .run();
   return getFlashcardById(id);
@@ -279,6 +253,13 @@ export function updateFlashcard(
 
 export function deleteFlashcard(id: string) {
   const db = getDb();
+  const card = getFlashcardById(id);
+  if (card?.audioPath) {
+    try {
+      const file = new File(Paths.document, card.audioPath.replace("file://", ""));
+      if (file.exists) file.delete();
+    } catch {}
+  }
   db.delete(pendingReview)
     .where(eq(pendingReview.flashcardId, id))
     .run();
@@ -305,7 +286,7 @@ export function updateDeck(
 ) {
   const db = getDb();
   db.update(deck)
-    .set(updates)
+    .set({ ...updates, updatedAt: nowIso() })
     .where(eq(deck.id, id))
     .run();
   return getDeckById(id);
@@ -314,7 +295,7 @@ export function updateDeck(
 export function updateFlashcardAudioPath(id: string, audioPath: string) {
   const db = getDb();
   db.update(flashcard)
-    .set({ audioPath })
+    .set({ audioPath, updatedAt: nowIso() })
     .where(eq(flashcard.id, id))
     .run();
   return getFlashcardById(id);
@@ -346,7 +327,7 @@ export function updateVocabularyState(
   if (!state) return null;
 
   db.update(userVocabularyState)
-    .set(updates)
+    .set({ ...updates, updatedAt: nowIso() })
     .where(eq(userVocabularyState.flashcardId, flashcardId))
     .run();
 
@@ -417,16 +398,44 @@ export function clearPendingReviews() {
 
 export function getTotalCardCount() {
   const db = getDb();
-  const result = db.select().from(flashcard).all();
-  return result.length;
+  const result = db.select({ value: count() }).from(flashcard).all();
+  return result[0]?.value ?? 0;
 }
 
 export function getFlashcardCountByDeck(deckId: string): number {
   const db = getDb();
   const result = db
-    .select()
+    .select({ value: count() })
     .from(flashcard)
     .where(eq(flashcard.deckId, deckId))
     .all();
-  return result.length;
+  return result[0]?.value ?? 0;
+}
+
+export function getFailingTokens() {
+  const db = getDb();
+  return db
+    .select({
+      id: flashcard.id,
+      sentence: flashcard.sentence,
+      answer: flashcard.answer,
+      answerPinyin: flashcard.answerPinyin,
+      difficultyScore: userVocabularyState.difficultyScore,
+      totalReviews: userVocabularyState.totalReviews,
+      totalFailures: userVocabularyState.totalFailures,
+    })
+    .from(flashcard)
+    .innerJoin(
+      userVocabularyState,
+      eq(flashcard.id, userVocabularyState.flashcardId)
+    )
+    .where(
+      or(
+        gt(userVocabularyState.consecutiveFailures, 0),
+        gt(userVocabularyState.difficultyScore, 0.5)
+      )
+    )
+    .orderBy(desc(userVocabularyState.difficultyScore))
+    .limit(20)
+    .all();
 }

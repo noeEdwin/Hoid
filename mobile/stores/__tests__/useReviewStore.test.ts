@@ -60,27 +60,33 @@ function makeVocabState(overrides: Record<string, any> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(Math, 'random').mockReturnValue(0.5);
+  require("expo-file-system").__resetStore();
   useReviewStore.setState({
-    queue: [],
-    currentIndex: 0,
+    remaining: [],
+    completed: [],
+    failedCards: [],
+    missedCardIds: new Set(),
+    attemptCount: new Map(),
     deckId: null,
     isComplete: false,
     showResult: false,
     lastResultCorrect: false,
     cardStartTime: Date.now(),
+    sessionStartTime: Date.now(),
+    answeredCount: 0,
   });
 });
 
 describe("loadQueue", () => {
-  it("loads cards and resets index to 0", () => {
+  it("loads cards and resets state", () => {
     const cards = [makeCard({ id: "c1" }), makeCard({ id: "c2" })];
     mockGetDueCards.mockReturnValue(cards as any);
 
     useReviewStore.getState().loadQueue("deck-1");
 
     const state = useReviewStore.getState();
-    expect(state.queue).toHaveLength(2);
-    expect(state.currentIndex).toBe(0);
+    expect(state.remaining).toHaveLength(2);
     expect(state.deckId).toBe("deck-1");
     expect(state.isComplete).toBe(false);
     expect(state.showResult).toBe(false);
@@ -92,7 +98,7 @@ describe("loadQueue", () => {
     useReviewStore.getState().loadQueue("deck-empty");
 
     expect(useReviewStore.getState().isComplete).toBe(true);
-    expect(useReviewStore.getState().queue).toHaveLength(0);
+    expect(useReviewStore.getState().remaining).toHaveLength(0);
   });
 
   it("respects the limit parameter", () => {
@@ -245,7 +251,7 @@ describe("submitAnswer", () => {
   });
 
   it("on empty queue: no-op", () => {
-    useReviewStore.setState({ queue: [], currentIndex: 0 });
+    useReviewStore.setState({ remaining: [], completed: [], failedCards: [] });
     jest.clearAllMocks();
 
     useReviewStore.getState().submitAnswer(true);
@@ -267,25 +273,34 @@ describe("dismissResult", () => {
     jest.clearAllMocks();
   });
 
-  it("advances currentIndex", () => {
+  it("advances to next card", () => {
     useReviewStore.setState({ showResult: true });
 
     useReviewStore.getState().dismissResult();
 
-    expect(useReviewStore.getState().currentIndex).toBe(1);
+    expect(useReviewStore.getState().remaining).toHaveLength(3);
     expect(useReviewStore.getState().showResult).toBe(false);
   });
 
   it("at last card: sets isComplete=true", () => {
-    useReviewStore.setState({ currentIndex: 2, showResult: true });
+    const cards = [makeCard({ id: "c1" })];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
 
+    useReviewStore.getState().submitAnswer(true);
     useReviewStore.getState().dismissResult();
 
     expect(useReviewStore.getState().isComplete).toBe(true);
   });
 
   it("double-call at end: no crash", () => {
-    useReviewStore.setState({ currentIndex: 2, showResult: true });
+    const cards = [makeCard({ id: "c1" })];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
+
+    useReviewStore.getState().submitAnswer(true);
     useReviewStore.getState().dismissResult();
     expect(useReviewStore.getState().isComplete).toBe(true);
 
@@ -324,8 +339,7 @@ describe("resetSession", () => {
     useReviewStore.getState().resetSession();
 
     expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 20);
-    expect(useReviewStore.getState().queue).toHaveLength(1);
-    expect(useReviewStore.getState().currentIndex).toBe(0);
+    expect(useReviewStore.getState().remaining).toHaveLength(1);
   });
 
   it("with null deckId: no-op", () => {
@@ -348,34 +362,34 @@ describe("getCurrentCard", () => {
   });
 
   it("with empty queue: returns null", () => {
-    useReviewStore.setState({ queue: [], currentIndex: 0 });
-
-    expect(useReviewStore.getState().getCurrentCard()).toBeNull();
-  });
-
-  it("with out-of-bounds index: returns null", () => {
-    const cards = [makeCard({ id: "c1" })];
-    mockGetDueCards.mockReturnValue(cards as any);
-    useReviewStore.getState().loadQueue("deck-1");
-    useReviewStore.setState({ currentIndex: 5 });
+    useReviewStore.setState({ remaining: [] });
 
     expect(useReviewStore.getState().getCurrentCard()).toBeNull();
   });
 });
 
 describe("getProgress", () => {
-  it("returns current and total", () => {
+  it("returns progress with correct shape", () => {
     const cards = [makeCard({ id: "c1" }), makeCard({ id: "c2" }), makeCard({ id: "c3" })];
     mockGetDueCards.mockReturnValue(cards as any);
     useReviewStore.getState().loadQueue("deck-1");
 
-    expect(useReviewStore.getState().getProgress()).toEqual({ current: 0, total: 3 });
+    const progress = useReviewStore.getState().getProgress();
+    expect(progress.total).toBe(3);
+    expect(progress.current).toBe(0);
+    expect(progress.completedCount).toBe(0);
+    expect(progress.failedCount).toBe(0);
+    expect(progress.missedCount).toBe(0);
+    expect(progress.accuracy).toBe(0);
+    expect(progress.elapsedSeconds).toBeGreaterThanOrEqual(0);
   });
 
-  it("with empty queue: returns {0, 0}", () => {
-    useReviewStore.setState({ queue: [], currentIndex: 0 });
+  it("with empty queue: returns zeros", () => {
+    useReviewStore.setState({ remaining: [], completed: [], failedCards: [], answeredCount: 0 });
 
-    expect(useReviewStore.getState().getProgress()).toEqual({ current: 0, total: 0 });
+    const progress = useReviewStore.getState().getProgress();
+    expect(progress.current).toBe(0);
+    expect(progress.total).toBe(0);
   });
 });
 
@@ -390,10 +404,10 @@ describe("SRS queue ordering", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    const queue = useReviewStore.getState().queue;
-    expect(queue[0].difficultyScore).toBe(0.9);
-    expect(queue[1].difficultyScore).toBe(0.5);
-    expect(queue[2].difficultyScore).toBe(0.2);
+    const remaining = useReviewStore.getState().remaining;
+    expect(remaining[0].difficultyScore).toBe(0.9);
+    expect(remaining[1].difficultyScore).toBe(0.5);
+    expect(remaining[2].difficultyScore).toBe(0.2);
   });
 
   it("high-difficulty card not hidden", () => {
@@ -433,7 +447,7 @@ describe("SRS queue ordering", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    expect(useReviewStore.getState().queue).toHaveLength(3);
+    expect(useReviewStore.getState().remaining).toHaveLength(3);
   });
 
   it("no duplicate cards in queue", () => {
@@ -446,19 +460,8 @@ describe("SRS queue ordering", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    const ids = useReviewStore.getState().queue.map((c) => c.id);
+    const ids = useReviewStore.getState().remaining.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("card not removed from queue after review", () => {
-    const cards = [makeCard({ id: "c1" }), makeCard({ id: "c2" })];
-    mockGetDueCards.mockReturnValue(cards as any);
-    useReviewStore.getState().loadQueue("deck-1");
-    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
-
-    useReviewStore.getState().submitAnswer(true);
-
-    expect(useReviewStore.getState().queue).toHaveLength(2);
   });
 
   it("all cards in deck appear in queue within limit", () => {
@@ -469,7 +472,7 @@ describe("SRS queue ordering", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    expect(useReviewStore.getState().queue).toHaveLength(15);
+    expect(useReviewStore.getState().remaining).toHaveLength(15);
   });
 
   it("queue with limit=5 returns exactly 5", () => {
@@ -488,7 +491,7 @@ describe("mapLocalItem defaults", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    const card = useReviewStore.getState().queue[0];
+    const card = useReviewStore.getState().remaining[0];
     expect(card.cardType).toBe("cloze_deletion");
     expect(card.sentence).toBe("");
     expect(card.answer).toBe("");
@@ -513,7 +516,7 @@ describe("mapLocalItem defaults", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    const card = useReviewStore.getState().queue[0];
+    const card = useReviewStore.getState().remaining[0];
     expect(card.cardType).toBe("custom");
     expect(card.sentence).toBe("测试");
     expect(card.answer).toBe("答案");
@@ -523,13 +526,11 @@ describe("mapLocalItem defaults", () => {
 });
 
 describe("consecutive failure streak patterns", () => {
-  beforeEach(() => {
+  it("3 incorrect on same card: consecutiveFailures goes 0->1->2->3", () => {
     const cards = [makeCard({ id: "c1" })];
     mockGetDueCards.mockReturnValue(cards as any);
     useReviewStore.getState().loadQueue("deck-1");
-  });
 
-  it("3 incorrect in a row: consecutiveFailures = 3", () => {
     mockGetVocabularyState
       .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 0 }) as any)
       .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 1 }) as any)
@@ -539,42 +540,45 @@ describe("consecutive failure streak patterns", () => {
     useReviewStore.getState().submitAnswer(false);
     useReviewStore.getState().submitAnswer(false);
 
-    const lastCall = mockUpdateVocabularyState.mock.calls[2][1];
-    expect(lastCall.consecutiveFailures).toBe(3);
+    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveFailures).toBe(1);
+    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveFailures).toBe(2);
+    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveFailures).toBe(3);
   });
 
-  it("3 incorrect then 1 correct: consecutiveFailures resets to 0", () => {
+  it("incorrect then correct: consecutiveFailures resets to 0", () => {
+    const cards = [makeCard({ id: "c1" })];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+
+    mockGetVocabularyState
+      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 0 }) as any)
+      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 1 }) as any);
+
+    useReviewStore.getState().submitAnswer(false);
+    useReviewStore.getState().submitAnswer(true);
+
+    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveFailures).toBe(1);
+    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveFailures).toBe(0);
+  });
+
+  it("2 incorrect then correct: streak resets to 0", () => {
+    const cards = [makeCard({ id: "c1" })];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+
     mockGetVocabularyState
       .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 0 }) as any)
       .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 1 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 2 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 3 }) as any);
+      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 2 }) as any);
 
-    useReviewStore.getState().submitAnswer(false);
     useReviewStore.getState().submitAnswer(false);
     useReviewStore.getState().submitAnswer(false);
     useReviewStore.getState().submitAnswer(true);
 
-    const lastCall = mockUpdateVocabularyState.mock.calls[3][1];
-    expect(lastCall.consecutiveFailures).toBe(0);
-  });
-
-  it("alternating correct/incorrect: streak oscillates 0->1->0->1", () => {
-    mockGetVocabularyState
-      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 0 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 0 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 1 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveFailures: 0 }) as any);
-
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(false);
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(false);
-
-    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveFailures).toBe(0);
-    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveFailures).toBe(1);
-    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveFailures).toBe(0);
-    expect(mockUpdateVocabularyState.mock.calls[3][1].consecutiveFailures).toBe(1);
+    const calls = mockUpdateVocabularyState.mock.calls;
+    expect(calls[0][1].consecutiveFailures).toBe(1);
+    expect(calls[1][1].consecutiveFailures).toBe(2);
+    expect(calls[2][1].consecutiveFailures).toBe(0);
   });
 });
 
@@ -599,19 +603,6 @@ describe("mastery tracking (consecutiveCorrect)", () => {
     );
   });
 
-  it("3 correct in a row: consecutiveCorrect reaches 3", () => {
-    mockGetVocabularyState
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 2 }) as any);
-
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(true);
-
-    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveCorrect).toBe(3);
-  });
-
   it("incorrect answer: resets consecutiveCorrect to 0", () => {
     mockGetVocabularyState.mockReturnValue(
       makeVocabState({ consecutiveCorrect: 2 }) as any
@@ -625,36 +616,15 @@ describe("mastery tracking (consecutiveCorrect)", () => {
     );
   });
 
-  it("2 correct then 1 incorrect: streak resets", () => {
-    mockGetVocabularyState
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 2 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 2 }) as any);
-
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(false);
-
-    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveCorrect).toBe(2);
-    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveCorrect).toBe(3);
-    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveCorrect).toBe(0);
-  });
-
-  it("alternating: consecutiveCorrect oscillates 1->0->1->0", () => {
+  it("incorrect then correct: consecutiveCorrect goes 0->1", () => {
     mockGetVocabularyState
       .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any)
-      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 1 }) as any);
+      .mockReturnValueOnce(makeVocabState({ consecutiveCorrect: 0 }) as any);
 
-    useReviewStore.getState().submitAnswer(true);
     useReviewStore.getState().submitAnswer(false);
     useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().submitAnswer(false);
 
-    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveCorrect).toBe(1);
-    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveCorrect).toBe(0);
-    expect(mockUpdateVocabularyState.mock.calls[2][1].consecutiveCorrect).toBe(1);
-    expect(mockUpdateVocabularyState.mock.calls[3][1].consecutiveCorrect).toBe(0);
+    expect(mockUpdateVocabularyState.mock.calls[0][1].consecutiveCorrect).toBe(0);
+    expect(mockUpdateVocabularyState.mock.calls[1][1].consecutiveCorrect).toBe(1);
   });
 });

@@ -39,7 +39,7 @@ from app.services.session_store import (
 from app.services.stt import transcribe_audio
 from app.services.tts import synthesize_speech
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["roleplay"])
 
@@ -186,9 +186,9 @@ async def stream_roleplay(
                 await _handle_hint(websocket, state)
 
     except WebSocketDisconnect:
-        log.info("WebSocket disconnected for session %s", session_id)
+        logger.info("WebSocket disconnected for session %s", session_id)
     except Exception as e:
-        log.error("WebSocket error for session %s: %s", session_id, e)
+        logger.error("WebSocket error for session %s: %s", session_id, e)
         try:
             await websocket.send_json(
                 ErrorEvent(

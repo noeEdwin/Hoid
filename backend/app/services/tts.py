@@ -6,7 +6,7 @@ import edge_tts
 
 from app.core.config import settings
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0
@@ -30,7 +30,7 @@ async def synthesize_speech(text: str) -> bytes:
         except Exception as e:
             last_error = e
             delay = RETRY_BASE_DELAY * (2 ** attempt)
-            log.warning(
+            logger.warning(
                 "TTS failed on attempt %d/%d, retrying in %.1fs: %s",
                 attempt + 1,
                 MAX_RETRIES,

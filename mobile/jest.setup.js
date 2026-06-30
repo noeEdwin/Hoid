@@ -1,3 +1,24 @@
+jest.mock("expo-file-system", () => {
+  const store = {};
+  const api = {
+    Paths: { document: "mock-doc-dir" },
+    File: jest.fn().mockImplementation((dir, name) => ({
+      get path() { return `${dir}/${name}`; },
+      get exists() { return !!store[this.path]; },
+      textSync() { return store[this.path] || ""; },
+      write(content) { store[this.path] = content; },
+      delete() { delete store[this.path]; },
+    })),
+    Directory: jest.fn().mockImplementation((dir, name) => ({
+      get path() { return `${dir}/${name}`; },
+      get exists() { return true; },
+      create() {},
+    })),
+    __resetStore() { Object.keys(store).forEach(k => delete store[k]); },
+  };
+  return api;
+});
+
 jest.mock("expo-haptics", () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: {

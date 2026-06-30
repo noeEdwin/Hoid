@@ -24,6 +24,8 @@ interface SavedSession {
   failedCards: ReviewCard[];
   missedCardIds: string[];
   attemptCountEntries: [string, number][];
+  answeredCount: number;
+  sessionStartTime: number;
   savedAt: number;
 }
 
@@ -33,6 +35,8 @@ function saveSessionToFile(deckId: string, state: {
   failedCards: ReviewCard[];
   missedCardIds: Set<string>;
   attemptCount: Map<string, number>;
+  answeredCount: number;
+  sessionStartTime: number;
 }): void {
   const data: SavedSession = {
     remaining: state.remaining,
@@ -40,6 +44,8 @@ function saveSessionToFile(deckId: string, state: {
     failedCards: state.failedCards,
     missedCardIds: Array.from(state.missedCardIds),
     attemptCountEntries: Array.from(state.attemptCount.entries()),
+    answeredCount: state.answeredCount,
+    sessionStartTime: state.sessionStartTime,
     savedAt: Date.now(),
   };
   const file = getSessionFile(deckId);
@@ -190,8 +196,8 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
         isComplete: saved.remaining.length === 0,
         showResult: false,
         cardStartTime: now,
-        sessionStartTime: saved.savedAt,
-        answeredCount: 0,
+        sessionStartTime: saved.sessionStartTime ?? saved.savedAt,
+        answeredCount: saved.answeredCount ?? 0,
       });
       return;
     }
@@ -300,14 +306,14 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   },
 
   dismissResult: () => {
-    const { remaining, deckId, completed, failedCards, missedCardIds, attemptCount } = get();
+    const { remaining, deckId, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime } = get();
     set({
       showResult: false,
       isComplete: remaining.length === 0,
       cardStartTime: Date.now(),
     });
     if (deckId && remaining.length > 0) {
-      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount });
+      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime });
     }
   },
 
@@ -320,9 +326,9 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   },
 
   saveSession: () => {
-    const { deckId, remaining, completed, failedCards, missedCardIds, attemptCount } = get();
+    const { deckId, remaining, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime } = get();
     if (deckId && remaining.length > 0) {
-      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount });
+      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime });
     }
   },
 

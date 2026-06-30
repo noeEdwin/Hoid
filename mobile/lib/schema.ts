@@ -5,6 +5,7 @@ export const deck = sqliteTable("deck", {
   name: text("name").notNull(),
   description: text("description"),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at"),
 });
 
 export const flashcard = sqliteTable("flashcard", {
@@ -22,6 +23,7 @@ export const flashcard = sqliteTable("flashcard", {
   imagePath: text("image_path"),
   audioPath: text("audio_path"),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at"),
 });
 
 export const userVocabularyState = sqliteTable("user_vocabulary_state", {
@@ -37,6 +39,7 @@ export const userVocabularyState = sqliteTable("user_vocabulary_state", {
   consecutiveFailures: integer("consecutive_failures").default(0),
   consecutiveCorrect: integer("consecutive_correct").default(0),
   difficultyScore: real("difficulty_score").default(0.0),
+  updatedAt: text("updated_at"),
 });
 
 export const pendingReview = sqliteTable("pending_review", {

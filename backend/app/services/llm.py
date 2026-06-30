@@ -8,7 +8,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import settings
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0
@@ -108,7 +108,7 @@ async def generate_greeting(
         except Exception as e:
             last_error = e
             delay = RETRY_BASE_DELAY * (2 ** attempt)
-            log.warning(
+            logger.warning(
                 "LLM greeting failed on attempt %d/%d, retrying in %.1fs: %s",
                 attempt + 1,
                 MAX_RETRIES,
@@ -161,7 +161,7 @@ async def generate_response(
         except Exception as e:
             last_error = e
             delay = RETRY_BASE_DELAY * (2 ** attempt)
-            log.warning(
+            logger.warning(
                 "LLM response failed on attempt %d/%d, retrying in %.1fs: %s",
                 attempt + 1,
                 MAX_RETRIES,

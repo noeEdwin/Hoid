@@ -45,19 +45,26 @@ function makeCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(Math, 'random').mockReturnValue(0.5);
+  require("expo-file-system").__resetStore();
   useReviewStore.setState({
-    queue: [],
-    currentIndex: 0,
+    remaining: [],
+    completed: [],
+    failedCards: [],
+    missedCardIds: new Set(),
+    attemptCount: new Map(),
     deckId: null,
     isComplete: false,
     showResult: false,
     lastResultCorrect: false,
     cardStartTime: Date.now(),
+    sessionStartTime: Date.now(),
+    answeredCount: 0,
   });
 });
 
 describe("Full review session lifecycle", () => {
-  it("complete 3-card session: correct, incorrect, incorrect", () => {
+  it("complete 3-card session: correct, incorrect, correct", () => {
     const cards = [
       makeCard({ id: "c1", difficultyScore: 0.9, answer: "爱" }),
       makeCard({ id: "c2", difficultyScore: 0.5, answer: "朋友" }),
@@ -68,8 +75,7 @@ describe("Full review session lifecycle", () => {
     useReviewStore.getState().loadQueue("deck-1");
 
     const state0 = useReviewStore.getState();
-    expect(state0.queue).toHaveLength(3);
-    expect(state0.currentIndex).toBe(0);
+    expect(state0.remaining).toHaveLength(3);
     expect(state0.isComplete).toBe(false);
     expect(state0.getCurrentCard()?.id).toBe("c1");
 
@@ -95,7 +101,6 @@ describe("Full review session lifecycle", () => {
     useReviewStore.getState().dismissResult();
 
     const state1 = useReviewStore.getState();
-    expect(state1.currentIndex).toBe(1);
     expect(state1.showResult).toBe(false);
     expect(state1.getCurrentCard()?.id).toBe("c2");
 
@@ -121,7 +126,6 @@ describe("Full review session lifecycle", () => {
     useReviewStore.getState().dismissResult();
 
     const state2 = useReviewStore.getState();
-    expect(state2.currentIndex).toBe(2);
     expect(state2.getCurrentCard()?.id).toBe("c3");
 
     mockGetVocabularyState.mockReturnValue({
@@ -135,18 +139,37 @@ describe("Full review session lifecycle", () => {
       easeFactor: 2.5,
     });
 
-    useReviewStore.getState().submitAnswer(false);
+    useReviewStore.getState().submitAnswer(true);
 
     expect(mockUpdateVocabularyState).toHaveBeenCalledWith(
       "c3",
-      expect.objectContaining({ consecutiveFailures: 1, totalFailures: 1, totalReviews: 1 })
+      expect.objectContaining({ consecutiveFailures: 0, totalReviews: 1 })
     );
 
     useReviewStore.getState().dismissResult();
 
     const state3 = useReviewStore.getState();
-    expect(state3.isComplete).toBe(true);
-    expect(state3.getCurrentCard()).toBeNull();
+    expect(state3.getCurrentCard()?.id).toBe("c2");
+    expect(state3.isComplete).toBe(false);
+
+    mockGetVocabularyState.mockReturnValue({
+      id: "vs-2",
+      flashcardId: "c2",
+      totalReviews: 1,
+      totalFailures: 1,
+      consecutiveFailures: 1,
+      difficultyScore: 0.5,
+      srsInterval: 0,
+      easeFactor: 2.5,
+    });
+
+    useReviewStore.getState().submitAnswer(true);
+
+    useReviewStore.getState().dismissResult();
+
+    const state4 = useReviewStore.getState();
+    expect(state4.isComplete).toBe(true);
+    expect(state4.getCurrentCard()).toBeNull();
   });
 
   it("resetSession reloads queue and resets progress", () => {
@@ -173,7 +196,6 @@ describe("Full review session lifecycle", () => {
     useReviewStore.getState().resetSession();
 
     const state = useReviewStore.getState();
-    expect(state.currentIndex).toBe(0);
     expect(state.isComplete).toBe(false);
     expect(state.getCurrentCard()?.id).toBe("c1");
   });
@@ -201,7 +223,8 @@ describe("SRS scheduling behavior", () => {
 
     useReviewStore.getState().submitAnswer(true);
 
-    expect(useReviewStore.getState().queue).toHaveLength(2);
+    expect(useReviewStore.getState().remaining).toHaveLength(1);
+    expect(useReviewStore.getState().completed).toHaveLength(1);
   });
 
   it("difficulty ordering preserved across turns", () => {
@@ -224,15 +247,12 @@ describe("SRS scheduling behavior", () => {
       easeFactor: 2.5,
     });
 
+    expect(useReviewStore.getState().getCurrentCard()?.id).toBe("c1");
+
     useReviewStore.getState().submitAnswer(true);
     useReviewStore.getState().dismissResult();
 
     expect(useReviewStore.getState().getCurrentCard()?.id).toBe("c2");
-
-    useReviewStore.getState().submitAnswer(true);
-    useReviewStore.getState().dismissResult();
-
-    expect(useReviewStore.getState().getCurrentCard()?.id).toBe("c3");
   });
 
   it("high-difficulty cards always surface first", () => {
@@ -251,7 +271,6 @@ describe("SRS scheduling behavior", () => {
       makeCard({ id: "c1" }),
       makeCard({ id: "c2" }),
       makeCard({ id: "c3" }),
-      makeCard({ id: "c4" }),
     ];
     mockGetDueCards.mockReturnValue(cards);
     useReviewStore.getState().loadQueue("deck-1");
@@ -260,12 +279,11 @@ describe("SRS scheduling behavior", () => {
       { consecutiveFailures: 0, totalFailures: 0, totalReviews: 0 },
       { consecutiveFailures: 1, totalFailures: 1, totalReviews: 1 },
       { consecutiveFailures: 2, totalFailures: 2, totalReviews: 2 },
-      { consecutiveFailures: 0, totalFailures: 2, totalReviews: 3 },
     ];
 
-    const answers = [false, false, false, true];
+    const answers = [false, false, false];
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       mockGetVocabularyState.mockReturnValue({
         id: `vs-${i}`,
         flashcardId: `c${i + 1}`,
@@ -283,6 +301,5 @@ describe("SRS scheduling behavior", () => {
     expect(calls[0][1].consecutiveFailures).toBe(1);
     expect(calls[1][1].consecutiveFailures).toBe(2);
     expect(calls[2][1].consecutiveFailures).toBe(3);
-    expect(calls[3][1].consecutiveFailures).toBe(0);
   });
 });

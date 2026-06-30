@@ -38,7 +38,7 @@ export default function DashboardScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <UserHeader totalCards={totalCards} streak={3} />
+        <UserHeader totalCards={totalCards} />
 
         <View className="flex-row items-center justify-between px-6 mb-3">
           <Text className="text-xl font-medium text-neutral-900">

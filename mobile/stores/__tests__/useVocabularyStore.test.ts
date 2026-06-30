@@ -4,17 +4,20 @@ jest.mock("../../lib/database", () => ({
   getAllDecks: jest.fn(),
   getTotalCardCount: jest.fn(),
   getFlashcardCountByDeck: jest.fn(),
+  getFailingTokens: jest.fn(),
 }));
 
 import {
   getAllDecks,
   getTotalCardCount,
   getFlashcardCountByDeck,
+  getFailingTokens,
 } from "../../lib/database";
 
 const mockGetAllDecks = getAllDecks as jest.MockedFunction<typeof getAllDecks>;
 const mockGetTotalCardCount = getTotalCardCount as jest.MockedFunction<typeof getTotalCardCount>;
 const mockGetFlashcardCountByDeck = getFlashcardCountByDeck as jest.MockedFunction<typeof getFlashcardCountByDeck>;
+const mockGetFailingTokens = getFailingTokens as jest.MockedFunction<typeof getFailingTokens>;
 
 beforeEach(() => {
   jest.clearAllMocks();

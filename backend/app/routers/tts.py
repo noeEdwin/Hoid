@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.services.tts import synthesize_speech
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["tts"])
 
@@ -27,5 +27,5 @@ async def generate_tts(request: TTSRequest):
 
         return Response(content=audio_bytes, media_type="audio/mpeg")
     except Exception as e:
-        log.error("TTS generation failed: %s", e)
+        logger.error("TTS generation failed: %s", e)
         raise HTTPException(status_code=500, detail="TTS generation failed")

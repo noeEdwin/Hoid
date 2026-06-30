@@ -3,6 +3,7 @@ import {
   getAllDecks,
   getTotalCardCount,
   getFlashcardCountByDeck,
+  getFailingTokens,
   deleteDeck as deleteDeckFromDB,
   updateDeck as updateDeckFromDB,
 } from "../lib/database";
@@ -57,6 +58,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   loadLocalData: () => {
     const localDecks = getAllDecks();
     const total = getTotalCardCount();
+    const failing = getFailingTokens();
     set({
       decks: localDecks.map((d) => ({
         id: d.id,
@@ -65,6 +67,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
         cardCount: getFlashcardCountByDeck(d.id),
       })),
       totalCards: total,
+      failingTokens: failing,
     });
   },
 

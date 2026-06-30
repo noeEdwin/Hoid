@@ -9,11 +9,16 @@ class DeckCreate(BaseModel):
     description: Optional[str] = None
 
 
+class DeckListResponse(BaseModel):
+    decks: list["DeckResponse"]
+
+
 class DeckResponse(BaseModel):
     id: str
     name: str
     description: Optional[str]
     created_at: datetime
+    updated_at: datetime
     model_config = {"from_attributes": True}
 
 
@@ -54,6 +59,7 @@ class FlashcardResponse(BaseModel):
     image_path: Optional[str]
     audio_path: Optional[str]
     created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -61,11 +67,6 @@ class FlashcardResponse(BaseModel):
 class FlashcardListResponse(BaseModel):
     flashcards: list[FlashcardResponse]
     total: int
-
-
-class FlashcardWithState(BaseModel):
-    flashcard: FlashcardResponse
-    state: Optional["UserVocabularyStateResponse"] = None
 
 
 class UserVocabularyStateResponse(BaseModel):
@@ -76,6 +77,8 @@ class UserVocabularyStateResponse(BaseModel):
     total_reviews: int
     total_failures: int
     consecutive_failures: int
+    consecutive_correct: int
     difficulty_score: float
+    updated_at: datetime
 
     model_config = {"from_attributes": True}

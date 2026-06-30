@@ -9,7 +9,7 @@ from openai import RateLimitError
 
 from app.core.config import settings
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0
@@ -48,7 +48,7 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
                     retry_after = float(e.response.headers["retry-after"])
                 except ValueError:
                     pass
-            log.warning(
+            logger.warning(
                 "Rate limited on attempt %d/%d, retrying in %.1fs",
                 attempt + 1,
                 MAX_RETRIES,

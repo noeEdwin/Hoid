@@ -35,6 +35,7 @@ export async function pushPendingReviews(): Promise<void> {
       name: d.name,
       description: d.description,
       created_at: d.createdAt ?? undefined,
+      updated_at: d.updatedAt ?? undefined,
     })),
     flashcards: allFlashcards.map((f) => ({
       id: f.id,
@@ -49,6 +50,7 @@ export async function pushPendingReviews(): Promise<void> {
       image_path: f.imagePath,
       audio_path: f.audioPath,
       created_at: f.createdAt ?? undefined,
+      updated_at: f.updatedAt ?? undefined,
     })),
     vocabulary_states: allFlashcards
       .map((f) => getVocabularyState(f.id))
@@ -62,6 +64,7 @@ export async function pushPendingReviews(): Promise<void> {
         consecutive_failures: s!.consecutiveFailures ?? 0,
         consecutive_correct: (s as any).consecutiveCorrect ?? 0,
         difficulty_score: s!.difficultyScore ?? 0,
+        updated_at: s!.updatedAt ?? undefined,
       })),
     pending_reviews: pending.map((r) => ({
       flashcard_id: r.flashcardId,
@@ -81,15 +84,17 @@ export async function pullUpdates(): Promise<void> {
   for (const d of data.decks) {
     const existing = db.select().from(deck).where(eq(deck.id, d.id)).get();
     if (existing) {
-      db.update(deck).set({ name: d.name, description: d.description }).where(eq(deck.id, d.id)).run();
+      if (d.updated_at && existing.updatedAt && d.updated_at <= existing.updatedAt) continue;
+      db.update(deck).set({ name: d.name, description: d.description, updatedAt: d.updated_at ?? existing.updatedAt }).where(eq(deck.id, d.id)).run();
     } else {
-      db.insert(deck).values({ id: d.id, name: d.name, description: d.description }).run();
+      db.insert(deck).values({ id: d.id, name: d.name, description: d.description, createdAt: d.created_at, updatedAt: d.updated_at }).run();
     }
   }
 
   for (const f of data.flashcards) {
     const existing = db.select().from(flashcard).where(eq(flashcard.id, f.id)).get();
     if (existing) {
+      if (f.updated_at && existing.updatedAt && f.updated_at <= existing.updatedAt) continue;
       db.update(flashcard)
         .set({
           sentence: f.sentence,
@@ -101,6 +106,7 @@ export async function pullUpdates(): Promise<void> {
           imagePath: f.image_path,
           audioPath: f.audio_path,
           cardType: f.card_type,
+          updatedAt: f.updated_at ?? existing.updatedAt,
         })
         .where(eq(flashcard.id, f.id))
         .run();
@@ -118,6 +124,8 @@ export async function pullUpdates(): Promise<void> {
           contextPinyin: f.context_pinyin,
           imagePath: f.image_path,
           audioPath: f.audio_path,
+          createdAt: f.created_at,
+          updatedAt: f.updated_at,
         })
         .run();
     }
@@ -126,6 +134,7 @@ export async function pullUpdates(): Promise<void> {
   for (const vs of data.vocabulary_states) {
     const existing = getVocabularyState(vs.flashcard_id);
     if (existing) {
+      if (vs.updated_at && existing.updatedAt && vs.updated_at <= existing.updatedAt) continue;
       db.update(userVocabularyState)
         .set({
           srsInterval: vs.srs_interval,
@@ -135,6 +144,7 @@ export async function pullUpdates(): Promise<void> {
           consecutiveFailures: vs.consecutive_failures,
           consecutiveCorrect: vs.consecutive_correct,
           difficultyScore: vs.difficulty_score,
+          updatedAt: vs.updated_at ?? existing.updatedAt,
         })
         .where(eq(userVocabularyState.flashcardId, vs.flashcard_id))
         .run();
@@ -150,6 +160,7 @@ export async function pullUpdates(): Promise<void> {
           consecutiveFailures: vs.consecutive_failures,
           consecutiveCorrect: vs.consecutive_correct,
           difficultyScore: vs.difficulty_score,
+          updatedAt: vs.updated_at,
         })
         .run();
     }
