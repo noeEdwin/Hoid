@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback } from "react";
-import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { useEffect, useRef, useCallback, useState } from "react";
+import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { createAudioPlayer } from "expo-audio";
@@ -54,6 +54,13 @@ export default function ReviewScreen() {
   const progress = getProgress();
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const answeredRef = useRef<{ answer: string; answerPinyin: string } | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   useEffect(() => {
     if (deckId) {
@@ -267,7 +274,7 @@ export default function ReviewScreen() {
 
         <ProgressBar current={progress.current + 1} total={progress.total} />
 
-        <View className="flex-1 items-center justify-center">
+        <View className={`flex-1 items-center ${keyboardVisible ? "pt-8" : "justify-center"}`}>
           {!showResult && card ? (
             <ClozeInput
               sentence={card.sentence}
