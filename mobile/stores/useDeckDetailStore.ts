@@ -11,7 +11,7 @@ import {
   updateFlashcardAudioPath,
 } from "../lib/database";
 import { useVocabularyStore } from "./useVocabularyStore";
-import { generateTTS } from "../lib/api";
+import { generateTTS, bulkCreateFlashcardsApi } from "../lib/api";
 import type { Flashcard } from "../lib/schema";
 
 interface FlashcardItem {
@@ -33,6 +33,7 @@ interface DeckDetailState {
   flashcards: FlashcardItem[];
   isLoading: boolean;
   isGeneratingAudio: boolean;
+  isImporting: boolean;
 
   loadDeck: (deckId: string) => void;
   addFlashcard: (data: {
@@ -57,6 +58,7 @@ interface DeckDetailState {
   removeFlashcard: (flashcardId: string) => void;
   removeDeck: () => void;
   updateDeck: (name: string, description?: string) => void;
+  bulkImportCards: () => Promise<{ created: number; errors: string[] } | null>;
 }
 
 function mapFlashcard(f: Flashcard): FlashcardItem {
@@ -101,6 +103,7 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
   flashcards: [],
   isLoading: false,
   isGeneratingAudio: false,
+  isImporting: false,
 
   loadDeck: (deckId: string) => {
     set({ isLoading: true });
@@ -173,5 +176,83 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
     updateDeckFromDB(deckId, { name, description: description ?? undefined });
     set({ deckName: name, deckDescription: description ?? null });
     useVocabularyStore.getState().loadLocalData();
+  },
+
+  bulkImportCards: async () => {
+    const { deckId } = get();
+    if (!deckId) return null;
+
+    let DocumentPicker;
+    try {
+      DocumentPicker = await import("expo-document-picker");
+    } catch {
+      console.warn("expo-document-picker not available");
+      return null;
+    }
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/json",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return null;
+
+      set({ isImporting: true });
+
+      const fileUri = result.assets[0].uri;
+      const file = new File(fileUri);
+      const text = await file.text();
+      const cards = JSON.parse(text);
+
+      if (!Array.isArray(cards)) {
+        set({ isImporting: false });
+        return null;
+      }
+
+      const validCards = cards.filter(
+        (c: any) => c.answer && typeof c.answer === "string"
+      );
+
+      for (const card of validCards) {
+        createFlashcard({
+          deckId,
+          sentence: card.sentence ?? null,
+          sentencePinyin: card.sentence_pinyin ?? card.sentencePinyin ?? null,
+          answer: card.answer,
+          answerPinyin: card.answer_pinyin ?? card.answerPinyin ?? null,
+          context: card.context ?? null,
+          contextPinyin: card.context_pinyin ?? card.contextPinyin ?? null,
+          imagePath: card.image_path ?? card.imagePath ?? null,
+        });
+      }
+
+      const cards_after = getFlashcardsByDeck(deckId);
+      set({ flashcards: cards_after.map(mapFlashcard), isImporting: false });
+      useVocabularyStore.getState().loadLocalData();
+
+      try {
+        await bulkCreateFlashcardsApi(
+          deckId,
+          validCards.map((c: any) => ({
+            sentence: c.sentence ?? null,
+            sentence_pinyin: c.sentence_pinyin ?? c.sentencePinyin ?? null,
+            answer: c.answer,
+            answer_pinyin: c.answer_pinyin ?? c.answerPinyin ?? null,
+            context: c.context ?? null,
+            context_pinyin: c.context_pinyin ?? c.contextPinyin ?? null,
+            image_path: c.image_path ?? c.imagePath ?? null,
+          }))
+        );
+      } catch (e) {
+        console.warn("Backend bulk upload failed, cards saved locally:", e);
+      }
+
+      return { created: validCards.length, errors: [] };
+    } catch (e) {
+      console.warn("Bulk import failed:", e);
+      set({ isImporting: false });
+      return null;
+    }
   },
 }));

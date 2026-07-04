@@ -22,9 +22,11 @@ export default function DeckDetailScreen() {
     deckDescription,
     flashcards,
     isLoading,
+    isImporting,
     loadDeck,
     removeFlashcard,
     removeDeck,
+    bulkImportCards,
   } = useDeckDetailStore();
   const isDeckReviewedToday = useSettingsStore((s) => s.isDeckReviewedToday);
   const resetDeckReviewed = useSettingsStore((s) => s.resetDeckReviewed);
@@ -85,6 +87,30 @@ export default function DeckDetailScreen() {
     ]);
   };
 
+  const handleImport = async () => {
+    try {
+      const result = await bulkImportCards();
+      if (result) {
+        Alert.alert(
+          "Import Complete",
+          `Created ${result.created} card${result.created !== 1 ? "s" : ""}.`,
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(
+          "Import Unavailable",
+          "File picker requires a development build. Run: npx expo run:android",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (e) {
+      console.warn("Import failed:", e);
+      Alert.alert("Import Failed", "Could not import cards. Check the file format.", [
+        { text: "OK" },
+      ]);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9ff" }} edges={["top"]}>
       <StatusBar style="dark" />
@@ -99,6 +125,9 @@ export default function DeckDetailScreen() {
           </Pressable>
           <Pressable onPress={handleDeleteDeck} style={styles.deleteBtn}>
             <Text style={styles.deleteBtnText}>Delete</Text>
+          </Pressable>
+          <Pressable onPress={handleImport} style={styles.importBtn} disabled={isImporting}>
+            <Text style={styles.importBtnText}>{isImporting ? "..." : "Import"}</Text>
           </Pressable>
           <Pressable
             onPress={() =>
@@ -232,6 +261,17 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     color: "white",
+    fontSize: normalize(13),
+    fontWeight: "600",
+  },
+  importBtn: {
+    backgroundColor: "#e8f5e9",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  importBtnText: {
+    color: "#2e7d32",
     fontSize: normalize(13),
     fontWeight: "600",
   },

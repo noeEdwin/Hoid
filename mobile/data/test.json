@@ -1,0 +1,371 @@
+[
+  {
+    "sentence": "天气___冷了。",
+    "sentence_pinyin": "tiān qì biàn lěng le.",
+    "answer": "变",
+    "answer_pinyin": "biàn",
+    "context": "To change / become.",
+    "context_pinyin": "biàn huà",
+    "image_path": "🔄"
+  },
+  {
+    "sentence": "这件事对我___很大。",
+    "sentence_pinyin": "zhè jiàn shì qing duì wǒ yǐng xiǎng hěn dà.",
+    "answer": "影响",
+    "answer_pinyin": "yǐng xiǎng",
+    "context": "Influence / effect.",
+    "context_pinyin": "yǐng xiǎng",
+    "image_path": "🌊"
+  },
+  {
+    "sentence": "我周末喜欢看___。",
+    "sentence_pinyin": "wǒ zhōu mò xǐ huan kàn dān kǒu xǐ jù.",
+    "answer": "单口喜剧",
+    "answer_pinyin": "dān kǒu xǐ jù",
+    "context": "Stand-up comedy.",
+    "context_pinyin": "dān kǒu xǐ jù",
+    "image_path": "🎤"
+  },
+  {
+    "sentence": "这个老师在学校很___。",
+    "sentence_pinyin": "zhè ge lǎo shī zài xué xiào hěn shòu huān yíng.",
+    "answer": "受欢迎",
+    "answer_pinyin": "shòu huān yíng",
+    "context": "Popular / well-received.",
+    "context_pinyin": "shòu huān yíng",
+    "image_path": "🌟"
+  },
+  {
+    "sentence": "他讲了一个___。",
+    "sentence_pinyin": "tā jiǎng le yí ge xiào hua.",
+    "answer": "笑话",
+    "answer_pinyin": "xiào hua",
+    "context": "Joke.",
+    "context_pinyin": "xiào hua",
+    "image_path": "😂"
+  },
+  {
+    "sentence": "孩子们都喜欢吃___。",
+    "sentence_pinyin": "hái zi men dōu xǐ huan chī shǔ tiáo.",
+    "answer": "薯条",
+    "answer_pinyin": "shǔ tiáo",
+    "context": "French fries.",
+    "context_pinyin": "shǔ tiáo",
+    "image_path": "🍟"
+  },
+  {
+    "sentence": "妈妈在___。",
+    "sentence_pinyin": "mā ma zài chǎo cài.",
+    "answer": "炒菜",
+    "answer_pinyin": "chǎo cài",
+    "context": "Stir-frying.",
+    "context_pinyin": "chǎo cài",
+    "image_path": "🍳"
+  },
+  {
+    "sentence": "这个___很幽默。",
+    "sentence_pinyin": "zhè ge tuō kǒu xiù hěn yōu mò.",
+    "answer": "脱口秀",
+    "answer_pinyin": "tuō kǒu xiù",
+    "context": "Talk show.",
+    "context_pinyin": "tuō kǒu xiù",
+    "image_path": "📺"
+  },
+  {
+    "sentence": "他___考了满分。",
+    "sentence_pinyin": "tā shù xué kǎo le mǎn fēn.",
+    "answer": "数学",
+    "answer_pinyin": "shù xué",
+    "context": "Mathematics.",
+    "context_pinyin": "shù xué",
+    "image_path": "📐"
+  },
+  {
+    "sentence": "海外有很多___。",
+    "sentence_pinyin": "hǎi wài yǒu hěn duō huá rén.",
+    "answer": "华人",
+    "answer_pinyin": "huá rén",
+    "context": "Ethnic Chinese.",
+    "context_pinyin": "huá rén",
+    "image_path": "🌏"
+  },
+  {
+    "sentence": "我喜欢吃___。",
+    "sentence_pinyin": "wǒ xǐ huan chī sān wén yú.",
+    "answer": "三文鱼",
+    "answer_pinyin": "sān wén yú",
+    "context": "Salmon.",
+    "context_pinyin": "sān wén yú",
+    "image_path": "🍣"
+  },
+  {
+    "sentence": "他点了一碗___。",
+    "sentence_pinyin": "tā diǎn le yì wǎn lā miàn.",
+    "answer": "拉面",
+    "answer_pinyin": "lā miàn",
+    "context": "Ramen.",
+    "context_pinyin": "lā miàn",
+    "image_path": "🍜"
+  },
+  {
+    "sentence": "日本___很有名。",
+    "sentence_pinyin": "rì běn shòu sī hěn yǒu míng.",
+    "answer": "寿司",
+    "answer_pinyin": "shòu sī",
+    "context": "Sushi.",
+    "context_pinyin": "shòu sī",
+    "image_path": "🍙"
+  },
+  {
+    "sentence": "我们办了一个生日___。",
+    "sentence_pinyin": "wǒ men bàn le yí ge shēng rì pài duì.",
+    "answer": "派对",
+    "answer_pinyin": "pài duì",
+    "context": "Party.",
+    "context_pinyin": "pài duì",
+    "image_path": "🎉"
+  },
+  {
+    "sentence": "这家___很便宜。",
+    "sentence_pinyin": "zhè jiā kuài cān diàn hěn pián yi.",
+    "answer": "快餐店",
+    "answer_pinyin": "kuài cān diàn",
+    "context": "Fast food restaurant.",
+    "context_pinyin": "kuài cān diàn",
+    "image_path": "🍔"
+  },
+  {
+    "sentence": "他吃了一个___。",
+    "sentence_pinyin": "tā chī le yí ge hàn bǎo.",
+    "answer": "汉堡",
+    "answer_pinyin": "hàn bǎo",
+    "context": "Hamburger.",
+    "context_pinyin": "hàn bǎo",
+    "image_path": "🍔"
+  },
+  {
+    "sentence": "这家餐厅的___很好吃。",
+    "sentence_pinyin": "zhè jiā cān tīng de niú pái hěn hǎo chī.",
+    "answer": "牛排",
+    "answer_pinyin": "niú pái",
+    "context": "Steak.",
+    "context_pinyin": "niú pái",
+    "image_path": "🥩"
+  },
+  {
+    "sentence": "我们进入了___。",
+    "sentence_pinyin": "wǒ men jìn rù le jué sài.",
+    "answer": "决赛",
+    "answer_pinyin": "jué sài",
+    "context": "Final match.",
+    "context_pinyin": "jué sài",
+    "image_path": "🏆"
+  },
+  {
+    "sentence": "这个___很强。",
+    "sentence_pinyin": "zhè ge duì hěn qiáng.",
+    "answer": "队",
+    "answer_pinyin": "duì",
+    "context": "Team.",
+    "context_pinyin": "duì",
+    "image_path": "🏅"
+  },
+  {
+    "sentence": "球员们在___上奔跑。",
+    "sentence_pinyin": "qiú yuán men zài chǎng shàng bēn pǎo.",
+    "answer": "场",
+    "answer_pinyin": "chǎng",
+    "context": "Field / court.",
+    "context_pinyin": "chǎng",
+    "image_path": "🏟️"
+  },
+  {
+    "sentence": "他希望赢得___。",
+    "sentence_pinyin": "tā xī wàng yíng dé shì jiè bēi.",
+    "answer": "世界杯",
+    "answer_pinyin": "shì jiè bēi",
+    "context": "World Cup.",
+    "context_pinyin": "shì jiè bēi",
+    "image_path": "⚽"
+  },
+  {
+    "sentence": "他的鞋子是___的。",
+    "sentence_pinyin": "tā de xié zi shì zōng sè de.",
+    "answer": "棕色",
+    "answer_pinyin": "zōng sè",
+    "context": "Brown.",
+    "context_pinyin": "zōng sè",
+    "image_path": "🟤"
+  },
+  {
+    "sentence": "她穿了一件___外套。",
+    "sentence_pinyin": "tā chuān le yí jiàn huī sè wài tào.",
+    "answer": "灰色",
+    "answer_pinyin": "huī sè",
+    "context": "Gray.",
+    "context_pinyin": "huī sè",
+    "image_path": "⚪"
+  },
+  {
+    "sentence": "你应该___运动。",
+    "sentence_pinyin": "nǐ yīng gāi dìng shí yùn dòng.",
+    "answer": "定时",
+    "answer_pinyin": "dìng shí",
+    "context": "Regularly / fixed time.",
+    "context_pinyin": "dìng shí",
+    "image_path": "⏲️"
+  },
+  {
+    "sentence": "这是一个很好的学习___。",
+    "sentence_pinyin": "zhè shì yí ge hěn hǎo de xué xí jī huì.",
+    "answer": "机会",
+    "answer_pinyin": "jī huì",
+    "context": "Opportunity.",
+    "context_pinyin": "jī huì",
+    "image_path": "🍀"
+  },
+  {
+    "sentence": "不知道做什么的时候，我和朋友们___。",
+    "sentence_pinyin": "bù zhī dào zuò shén me de shí hou, wǒ hé péng you men méi shén me shì zuò.",
+    "answer": "没什么事做",
+    "answer_pinyin": "méi shén me shì zuò",
+    "context": "Nothing to do.",
+    "context_pinyin": "méi shén me shì zuò",
+    "image_path": "🥱"
+  },
+  {
+    "sentence": "他在___努力学习。",
+    "sentence_pinyin": "tā zài bú duàn nǔ lì xué xí.",
+    "answer": "不断",
+    "answer_pinyin": "bú duàn",
+    "context": "Continuously.",
+    "context_pinyin": "bú duàn",
+    "image_path": "📈"
+  },
+  {
+    "sentence": "他写了一本___《春天》的书。",
+    "sentence_pinyin": "tā xiě le yì běn míng wéi chūn tiān de shū.",
+    "answer": "名为",
+    "answer_pinyin": "míng wéi",
+    "context": "Named / called.",
+    "context_pinyin": "míng wéi",
+    "image_path": "🏷️"
+  },
+  {
+    "sentence": "我看到了树的___。",
+    "sentence_pinyin": "wǒ kàn dào le shù de yǐng zi.",
+    "answer": "影子",
+    "answer_pinyin": "yǐng zi",
+    "context": "Shadow.",
+    "context_pinyin": "yǐng zi",
+    "image_path": "👤"
+  },
+  {
+    "sentence": "他很喜欢吃___的菜。",
+    "sentence_pinyin": "tā hěn xǐ huan chī dāng dì de cài.",
+    "answer": "当地",
+    "answer_pinyin": "dāng dì",
+    "context": "Local.",
+    "context_pinyin": "dāng dì",
+    "image_path": "📍"
+  },
+  {
+    "sentence": "___他来的时候，我正在看书。",
+    "sentence_pinyin": "dāng tā lái de shí hou, wǒ zhèng zài kàn shū.",
+    "answer": "当",
+    "answer_pinyin": "dāng",
+    "context": "When / to act as.",
+    "context_pinyin": "dāng",
+    "image_path": "⏰"
+  },
+  {
+    "sentence": "你可以在网上___这个信息。",
+    "sentence_pinyin": "nǐ kě yǐ zài wǎng shàng sōu suǒ zhè ge xìn xī.",
+    "answer": "搜索",
+    "answer_pinyin": "sōu suǒ",
+    "context": "To search.",
+    "context_pinyin": "sōu suǒ",
+    "image_path": "🔍"
+  },
+  {
+    "sentence": "运动可以___你的生活。",
+    "sentence_pinyin": "yùn dòng kě yǐ gǎi biàn nǐ de shēng huó.",
+    "answer": "改变",
+    "answer_pinyin": "gǎi biàn",
+    "context": "To change.",
+    "context_pinyin": "gǎi biàn",
+    "image_path": "🦋"
+  },
+  {
+    "sentence": "每个人都有自己的生活___。",
+    "sentence_pinyin": "měi ge rén dōu yǒu zì jǐ de shēng huó fāng shì.",
+    "answer": "方式",
+    "answer_pinyin": "fāng shì",
+    "context": "Way / method / lifestyle.",
+    "context_pinyin": "fāng shì",
+    "image_path": "🛤️"
+  },
+  {
+    "sentence": "我们应该___解决这个问题？",
+    "sentence_pinyin": "wǒ men yīng gāi rú hé jiě jué zhè ge wèn tí?",
+    "answer": "如何",
+    "answer_pinyin": "rú hé",
+    "context": "How.",
+    "context_pinyin": "rú hé",
+    "image_path": "❓"
+  },
+  {
+    "sentence": "外面___下雨了。",
+    "sentence_pinyin": "wài miàn hǎo xiàng xià yǔ le.",
+    "answer": "好像",
+    "answer_pinyin": "hǎo xiàng",
+    "context": "Seems like.",
+    "context_pinyin": "hǎo xiàng",
+    "image_path": "🤔"
+  },
+  {
+    "sentence": "他做事很___。",
+    "sentence_pinyin": "tā zuò shì hěn tà shi.",
+    "answer": "踏实",
+    "answer_pinyin": "tà shi",
+    "context": "Dependable / practical.",
+    "context_pinyin": "tà shi",
+    "image_path": "🧱"
+  },
+  {
+    "sentence": "___草和树都绿了。",
+    "sentence_pinyin": "chūn tiān cǎo hé shù dōu lǜ le.",
+    "answer": "春天",
+    "answer_pinyin": "chūn tiān",
+    "context": "Spring.",
+    "context_pinyin": "chūn tiān",
+    "image_path": "🌸"
+  },
+  {
+    "sentence": "___我喜欢穿裙子。",
+    "sentence_pinyin": "xià tiān wǒ xǐ huan chuān qún zi.",
+    "answer": "夏天",
+    "answer_pinyin": "xià tiān",
+    "context": "Summer.",
+    "context_pinyin": "xià tiān",
+    "image_path": "☀️"
+  },
+  {
+    "sentence": "___天气不冷也不热。",
+    "sentence_pinyin": "qiū tiān tiān qì bù lěng yě bú rè.",
+    "answer": "秋天",
+    "answer_pinyin": "qiū tiān",
+    "context": "Autumn / fall.",
+    "context_pinyin": "qiū tiān",
+    "image_path": "🍂"
+  },
+  {
+    "sentence": "在你的国家，___经常下雪吗？",
+    "sentence_pinyin": "zài nǐ de guó jiā, dōng tiān jīng cháng xià xuě ma?",
+    "answer": "冬天",
+    "answer_pinyin": "dōng tiān",
+    "context": "Winter.",
+    "context_pinyin": "dōng tiān",
+    "image_path": "❄️"
+  }
+]

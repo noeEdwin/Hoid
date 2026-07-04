@@ -64,6 +64,25 @@ class FlashcardResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class FlashcardBulkItem(BaseModel):
+    sentence: Optional[str] = None
+    sentence_pinyin: Optional[str] = None
+    answer: Optional[str] = None
+    answer_pinyin: Optional[str] = None
+    context: Optional[str] = None
+    context_pinyin: Optional[str] = None
+    image_path: Optional[str] = None
+
+
+class FlashcardBulkCreate(BaseModel):
+    flashcards: list[FlashcardBulkItem]
+
+
+class FlashcardBulkResponse(BaseModel):
+    created: int
+    errors: list[str]
+
+
 class FlashcardListResponse(BaseModel):
     flashcards: list[FlashcardResponse]
     total: int

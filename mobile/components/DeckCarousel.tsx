@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
-import { View, FlatList, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { useRef } from "react";
+import { View, StyleSheet } from "react-native";
+import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import DeckCard from "./DeckCard";
-import { normalize, Dimens } from "../lib/dimens";
+import { Dimens } from "../lib/dimens";
+import { parallaxLayout } from "../lib/carousel-animations";
 
 interface DeckItem {
   id: string;
@@ -16,23 +18,29 @@ interface DeckCarouselProps {
   onStartReview: (deckId: string) => void;
 }
 
-export default function DeckCarousel({ decks, onStartReview }: DeckCarouselProps) {
-  const flatListRef = useRef<FlatList>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+const ITEM_WIDTH = Dimens.width * 0.9;
+const ITEM_HEIGHT = Dimens.height * 0.4;
 
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(
-      e.nativeEvent.contentOffset.x / (Dimens.width - Dimens.padding * 4 + Dimens.gap * 2)
-    );
-    setActiveIndex(index);
-  };
+export default function DeckCarousel({ decks, onStartReview }: DeckCarouselProps) {
+  const flatListRef = useRef<ICarouselInstance>(null);
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <Carousel
         ref={flatListRef}
+        testID="deck-carousel-list"
         data={decks}
-        renderItem={({ item }) => (
+        vertical
+        loop={decks.length > 1}
+        style={styles.carousel}
+        contentContainerStyle={styles.contentContainer}
+        width={ITEM_WIDTH}
+        height={ITEM_HEIGHT}
+        pagingEnabled={false}
+        snapEnabled={false}
+        customAnimation={parallaxLayout({ size: ITEM_WIDTH })}
+        scrollAnimationDuration={500}
+        renderItem={({ item, animationValue }) => (
           <DeckCard
             deckId={item.id}
             name={item.name}
@@ -40,53 +48,25 @@ export default function DeckCarousel({ decks, onStartReview }: DeckCarouselProps
             cardCount={item.cardCount}
             isReviewedToday={item.isReviewedToday}
             onStartReview={onStartReview}
+            animationValue={animationValue}
           />
         )}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={Dimens.width - Dimens.padding * 4 + Dimens.gap * 2}
-        snapToAlignment="center"
-        decelerationRate="fast"
-        onScroll={onScroll}
-        contentContainerStyle={styles.listContent}
       />
-      {decks.length > 1 && (
-        <View style={styles.dots}>
-          {decks.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i === activeIndex && styles.dotActive]}
-            />
-          ))}
-        </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: Dimens.gutter,
+    flex: 1,
+    alignItems: "center",
   },
-  listContent: {
-    paddingHorizontal: Dimens.padding * 2,
+  carousel: {
+    width: ITEM_WIDTH,
+    height: Dimens.height * 0.7,
   },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: Dimens.gap,
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#d0d0d0",
-  },
-  dotActive: {
-    backgroundColor: "#005bbd",
-    width: 20,
+  contentContainer: {
+    width: ITEM_WIDTH,
+    height: ITEM_HEIGHT,
   },
 });

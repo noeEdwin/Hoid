@@ -12,6 +12,8 @@ from app.schemas.flashcard import (
     DeckCreate,
     DeckListResponse,
     DeckResponse,
+    FlashcardBulkCreate,
+    FlashcardBulkResponse,
     FlashcardCreate,
     FlashcardListResponse,
     FlashcardResponse,
@@ -138,6 +140,42 @@ def create_flashcard(
     session.commit()
     session.refresh(flashcard)
     return FlashcardResponse.model_validate(flashcard)
+
+
+@router.post("/decks/{deck_id}/flashcards/bulk", response_model=FlashcardBulkResponse)
+def bulk_create_flashcards(
+    deck_id: uuid.UUID,
+    data: FlashcardBulkCreate,
+    session: Session = Depends(get_session),
+) -> FlashcardBulkResponse:
+    deck = session.get(Deck, str(deck_id))
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+
+    created = 0
+    errors: list[str] = []
+
+    for i, item in enumerate(data.flashcards):
+        if not item.answer:
+            errors.append(f"Card {i + 1}: missing 'answer'")
+            continue
+
+        flashcard = Flashcard(
+            deck_id=str(deck_id),
+            card_type="cloze_deletion",
+            sentence=item.sentence,
+            sentence_pinyin=item.sentence_pinyin,
+            answer=item.answer,
+            answer_pinyin=item.answer_pinyin,
+            context=item.context,
+            context_pinyin=item.context_pinyin,
+            image_path=item.image_path,
+        )
+        session.add(flashcard)
+        created += 1
+
+    session.commit()
+    return FlashcardBulkResponse(created=created, errors=errors)
 
 
 @router.put("/flashcards/{flashcard_id}", response_model=FlashcardResponse)

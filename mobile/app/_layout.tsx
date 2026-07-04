@@ -3,8 +3,9 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { performSync } from "../lib/sync";
-import { seedHSKCourse } from "../lib/database";
+import { seedHSKCourse, seedMasterDeck } from "../lib/database";
 import { useSettingsStore } from "../stores/useSettingsStore";
+import { useVocabularyStore } from "../stores/useVocabularyStore";
 
 export default function RootLayout() {
   const loadSettings = useSettingsStore((s) => s.loadSettings);
@@ -12,7 +13,10 @@ export default function RootLayout() {
   useEffect(() => {
     loadSettings();
     seedHSKCourse();
-    performSync();
+    seedMasterDeck();
+    performSync().then(() => {
+      useVocabularyStore.getState().loadLocalData();
+    });
   }, []);
 
   return (

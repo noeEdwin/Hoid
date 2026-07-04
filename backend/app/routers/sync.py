@@ -40,14 +40,7 @@ def _upsert_deck(session: Session, item: SyncDeckItem) -> bool:
         existing.updated_at = now
         session.add(existing)
         return False
-    deck = Deck(
-        id=item.id,
-        name=item.name,
-        description=item.description,
-        updated_at=now,
-    )
-    session.add(deck)
-    return True
+    return False
 
 
 def _upsert_flashcard(session: Session, item: SyncFlashcardItem) -> bool:
@@ -66,22 +59,7 @@ def _upsert_flashcard(session: Session, item: SyncFlashcardItem) -> bool:
         existing.updated_at = now
         session.add(existing)
         return False
-    flashcard = Flashcard(
-        id=item.id,
-        deck_id=item.deck_id,
-        card_type=item.card_type,
-        sentence=item.sentence,
-        sentence_pinyin=item.sentence_pinyin,
-        answer=item.answer,
-        answer_pinyin=item.answer_pinyin,
-        context=item.context,
-        context_pinyin=item.context_pinyin,
-        image_path=item.image_path,
-        audio_path=item.audio_path,
-        updated_at=now,
-    )
-    session.add(flashcard)
-    return True
+    return False
 
 
 def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:

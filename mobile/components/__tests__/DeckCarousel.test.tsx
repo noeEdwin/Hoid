@@ -2,6 +2,38 @@ import React from "react";
 import { render } from "@testing-library/react-native";
 import DeckCarousel from "../DeckCarousel";
 
+jest.mock("react-native-reanimated", () => ({
+  __esModule: true,
+  default: {
+    createAnimatedComponent: (c: any) => c,
+  },
+  useSharedValue: (v: number) => ({ value: v }),
+  useAnimatedStyle: () => ({}),
+  withTiming: (v: any) => v,
+  interpolate: () => 0,
+  Extrapolation: { CLAMP: "clamp" },
+}));
+
+jest.mock("react-native-reanimated-carousel", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+
+  const Carousel = ({ data, renderItem, testID }: any) => (
+    <View testID={testID}>
+      {data?.map((item: any, index: number) => (
+        <React.Fragment key={`${item.id}-${index}`}>
+          {renderItem({ item, index, animationValue: { value: 0 } })}
+        </React.Fragment>
+      ))}
+    </View>
+  );
+
+  return {
+    __esModule: true,
+    default: Carousel,
+  };
+});
+
 jest.mock("expo-linear-gradient", () => {
   const { View } = require("react-native");
   return { LinearGradient: View };
@@ -11,11 +43,21 @@ jest.mock("../../lib/dimens", () => ({
   normalize: (s: number) => s,
   Dimens: {
     width: 375,
+    height: 812,
     padding: 24,
     gap: 12,
     borderRadius: 16,
   },
 }));
+
+jest.mock("../../lib/carousel-animations", () => ({
+  parallaxLayout: () => (value: number) => ({}),
+}));
+
+jest.mock("expo-blur", () => {
+  const { View } = require("react-native");
+  return { BlurView: View };
+});
 
 jest.mock("../DeckCard", () => {
   const { Text, Pressable } = require("react-native");
@@ -35,29 +77,24 @@ describe("DeckCarousel", () => {
   ];
 
   it("renders all decks", () => {
-    const { getByText } = render(
+    const { getAllByText } = render(
       <DeckCarousel decks={decks} onStartReview={jest.fn()} />
     );
-    expect(getByText("HSK 1")).toBeTruthy();
-    expect(getByText("Travel")).toBeTruthy();
+    expect(getAllByText("HSK 1").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Travel").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders pagination dots container when more than 1 deck", () => {
-    const { toJSON } = render(
+  it("renders carousel with vertical mode", () => {
+    const { getByTestId } = render(
       <DeckCarousel decks={decks} onStartReview={jest.fn()} />
     );
-    const tree = JSON.stringify(toJSON());
-    // The dots container has backgroundColor: "#005bbd" for active dot
-    expect(tree).toContain("#005bbd");
-    expect(tree).toContain("#d0d0d0");
+    expect(getByTestId("deck-carousel-list")).toBeTruthy();
   });
 
-  it("does not render active dot style for single deck", () => {
-    const { toJSON } = render(
+  it("renders single deck without errors", () => {
+    const { getByTestId } = render(
       <DeckCarousel decks={[decks[0]]} onStartReview={jest.fn()} />
     );
-    const tree = JSON.stringify(toJSON());
-    // Single deck should not have the dots container
-    expect(tree).not.toContain("#005bbd");
+    expect(getByTestId("deck-carousel-list")).toBeTruthy();
   });
 });

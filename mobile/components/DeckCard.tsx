@@ -1,6 +1,15 @@
+import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+} from "react-native-reanimated";
+import type { SharedValue } from "react-native-reanimated";
+import { BlurView as _BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { normalize, Dimens } from "../lib/dimens";
+
+const BlurView = Animated.createAnimatedComponent(_BlurView);
 
 interface DeckCardProps {
   deckId: string;
@@ -9,16 +18,28 @@ interface DeckCardProps {
   cardCount: number;
   isReviewedToday?: boolean;
   onStartReview: (deckId: string) => void;
+  animationValue?: SharedValue<number>;
 }
 
-export default function DeckCard({
+export default React.memo(function DeckCard({
   deckId,
   name,
   description,
   cardCount,
   isReviewedToday,
   onStartReview,
+  animationValue,
 }: DeckCardProps) {
+  const blurStyle = useAnimatedStyle(() => {
+    if (!animationValue) return { opacity: 0 };
+    const opacity = interpolate(
+      animationValue.value,
+      [-0.5, 0, 0.5, 1],
+      [1, 0, 0, 1]
+    );
+    return { opacity };
+  }, [animationValue]);
+
   return (
     <Pressable
       onPress={() => onStartReview(deckId)}
@@ -53,20 +74,28 @@ export default function DeckCard({
             {isReviewedToday ? "Completed" : "View Deck"}
           </Text>
         </View>
+        {animationValue && (
+          <BlurView
+            intensity={90}
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, blurStyle]}
+          />
+        )}
       </LinearGradient>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
-    width: Dimens.width - Dimens.padding * 4,
-    marginHorizontal: Dimens.gap,
+    flex: 1,
+    borderRadius: 30,
+    overflow: "hidden",
   },
   gradient: {
-    borderRadius: Dimens.borderRadius,
-    padding: Dimens.padding * 1.5,
-    minHeight: normalize(180),
+    flex: 1,
+    borderRadius: 30,
+    padding: Dimens.padding * 2,
     justifyContent: "space-between",
   },
   content: {
@@ -79,7 +108,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   name: {
-    fontSize: normalize(22),
+    fontSize: normalize(24),
     fontWeight: "700",
     color: "white",
   },
@@ -97,7 +126,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   description: {
-    fontSize: normalize(14),
+    fontSize: normalize(15),
     color: "rgba(255,255,255,0.8)",
     marginBottom: 12,
     lineHeight: normalize(20),

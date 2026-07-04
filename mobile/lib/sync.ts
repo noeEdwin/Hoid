@@ -7,20 +7,20 @@ import {
   clearPendingReviews,
   getDb,
 } from "./database";
-import { deck, flashcard, userVocabularyState } from "./schema";
-import { eq } from "drizzle-orm";
+import { deck, flashcard, userVocabularyState, pendingReview } from "./schema";
+import { eq, inArray } from "drizzle-orm";
 import * as crypto from "expo-crypto";
 
 export async function performSync(): Promise<void> {
   try {
     await pushPendingReviews();
-  } catch {
-    // offline or server unreachable — continue to pull
+  } catch (e) {
+    console.warn("[sync] push failed:", e);
   }
   try {
     await pullUpdates();
-  } catch {
-    // offline or server unreachable — silently ignore
+  } catch (e) {
+    console.warn("[sync] pull failed:", e);
   }
 }
 
@@ -81,6 +81,25 @@ export async function pullUpdates(): Promise<void> {
   const data = await apiPullSync();
   const db = getDb();
 
+  const remoteFlashcardIds = new Set(data.flashcards.map((f) => f.id));
+  const remoteDeckIds = new Set(data.decks.map((d) => d.id));
+
+  const localCards = db.select().from(flashcard).all();
+  const toDeleteCards = localCards.filter((c) => !remoteFlashcardIds.has(c.id));
+  if (toDeleteCards.length > 0) {
+    const deleteIds = toDeleteCards.map((c) => c.id);
+    db.delete(pendingReview).where(inArray(pendingReview.flashcardId, deleteIds)).run();
+    db.delete(userVocabularyState).where(inArray(userVocabularyState.flashcardId, deleteIds)).run();
+    db.delete(flashcard).where(inArray(flashcard.id, deleteIds)).run();
+  }
+
+  const localDecks = db.select().from(deck).all();
+  const toDeleteDecks = localDecks.filter((d) => !remoteDeckIds.has(d.id));
+  if (toDeleteDecks.length > 0) {
+    const deleteDeckIds = toDeleteDecks.map((d) => d.id);
+    db.delete(deck).where(inArray(deck.id, deleteDeckIds)).run();
+  }
+
   for (const d of data.decks) {
     const existing = db.select().from(deck).where(eq(deck.id, d.id)).get();
     if (existing) {
@@ -132,6 +151,7 @@ export async function pullUpdates(): Promise<void> {
   }
 
   for (const vs of data.vocabulary_states) {
+    if (!remoteFlashcardIds.has(vs.flashcard_id)) continue;
     const existing = getVocabularyState(vs.flashcard_id);
     if (existing) {
       if (vs.updated_at && existing.updatedAt && vs.updated_at <= existing.updatedAt) continue;

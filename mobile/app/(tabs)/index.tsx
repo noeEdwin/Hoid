@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -8,6 +8,7 @@ import DeckCarousel from "../../components/DeckCarousel";
 import GlassDock from "../../components/GlassDock";
 import { useVocabularyStore } from "../../stores/useVocabularyStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
+import { performSync } from "../../lib/sync";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function DashboardScreen() {
   const totalCards = useVocabularyStore((s) => s.totalCards);
   const loadLocalData = useVocabularyStore((s) => s.loadLocalData);
   const isDeckReviewedToday = useSettingsStore((s) => s.isDeckReviewedToday);
+  const getStreak = useSettingsStore((s) => s.getStreak);
+  const streak = getStreak();
 
   useFocusEffect(
     useCallback(() => {
@@ -26,42 +29,39 @@ export default function DashboardScreen() {
     router.push({ pathname: "/deck/[id]", params: { id: deckId } });
   };
 
-  const decksWithStatus = decks.map((d) => ({
-    ...d,
-    isReviewedToday: isDeckReviewedToday(d.id),
-  }));
+  const decksWithStatus = decks
+    .map((d) => ({
+      ...d,
+      isReviewedToday: isDeckReviewedToday(d.id),
+    }))
+    .sort((a, b) => (a.isReviewedToday ? 1 : b.isReviewedToday ? -1 : 0));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9ff" }} edges={["top"]}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <UserHeader totalCards={totalCards} />
+      <UserHeader totalCards={totalCards} streak={streak} />
 
-        <View className="flex-row items-center justify-between px-6 mb-3">
-          <Text className="text-xl font-medium text-neutral-900">
-            Your Decks
+      <View className="flex-row items-center justify-between px-6 mb-3">
+        <Text className="text-xl font-medium text-neutral-900">
+          Your Decks
+        </Text>
+        <Pressable
+          onPress={() => router.push("/modal/create-deck")}
+          className="bg-primary rounded-full w-9 h-9 items-center justify-center"
+        >
+          <Text className="text-white text-xl leading-none">+</Text>
+        </Pressable>
+      </View>
+
+      {decks.length > 0 ? (
+        <DeckCarousel decks={decksWithStatus} onStartReview={handleStartReview} />
+      ) : (
+        <View className="px-6 py-12 items-center">
+          <Text className="text-neutral-600 text-sm">
+            No decks yet. Create one or sync with backend.
           </Text>
-          <Pressable
-            onPress={() => router.push("/modal/create-deck")}
-            className="bg-primary rounded-full w-9 h-9 items-center justify-center"
-          >
-            <Text className="text-white text-xl leading-none">+</Text>
-          </Pressable>
         </View>
-
-        {decks.length > 0 ? (
-          <DeckCarousel decks={decksWithStatus} onStartReview={handleStartReview} />
-        ) : (
-          <View className="px-6 py-12 items-center">
-            <Text className="text-neutral-600 text-sm">
-              No decks yet. Create one or sync with backend.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+      )}
       <GlassDock />
     </SafeAreaView>
   );

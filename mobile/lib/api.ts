@@ -162,6 +162,29 @@ export async function deleteFlashcardApi(flashcardId: string): Promise<void> {
   await apiFetch(`/api/flashcards/${flashcardId}`, { method: "DELETE" });
 }
 
+export interface BulkFlashcardItem {
+  sentence?: string;
+  sentence_pinyin?: string;
+  answer: string;
+  answer_pinyin?: string;
+  context?: string;
+  context_pinyin?: string;
+  image_path?: string;
+}
+
+export async function bulkCreateFlashcardsApi(
+  deckId: string,
+  flashcards: BulkFlashcardItem[]
+): Promise<{ created: number; errors: string[] }> {
+  return apiFetch<{ created: number; errors: string[] }>(
+    `/api/decks/${deckId}/flashcards/bulk`,
+    {
+      method: "POST",
+      body: JSON.stringify({ flashcards }),
+    }
+  );
+}
+
 export interface SyncDeckItem {
   id: string;
   name: string;

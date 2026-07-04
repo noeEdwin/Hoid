@@ -7,10 +7,25 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: View };
 });
 
+jest.mock("expo-blur", () => {
+  const { View } = require("react-native");
+  return { BlurView: View };
+});
+
+jest.mock("react-native-reanimated", () => ({
+  __esModule: true,
+  default: {
+    createAnimatedComponent: (c: any) => c,
+  },
+  useAnimatedStyle: () => ({}),
+  interpolate: () => 0,
+}));
+
 jest.mock("../../lib/dimens", () => ({
   normalize: (s: number) => s,
   Dimens: {
     width: 375,
+    height: 812,
     padding: 24,
     gap: 12,
     borderRadius: 16,

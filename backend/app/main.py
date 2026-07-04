@@ -4,15 +4,12 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import select
 
 from app.core.config import settings
 from app.core.database import get_session, init_db
-from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 from app.models.scenario import Scenario
 from app.routers import flashcards, roleplay, sync, test_page, tts, vocabulary
 
@@ -33,41 +30,13 @@ def _seed_scenarios() -> None:
         )
         db.add(scenario)
         db.commit()
-        logger.info("Seeded scenario: 在咖啡店")
-    db.close()
-
-
-def _seed_flashcards() -> None:
-    db = next(get_session())
-    existing = db.exec(select(Deck).where(Deck.name == "Starter Deck")).first()
-    if existing is None:
-        seed_path = Path(__file__).parent.parent / "seed_data" / "starter-deck.json"
-        with open(seed_path) as f:
-            cards = json.load(f)
-
-        deck_obj = Deck(name="Starter Deck", description="Initial cloze deletion cards")
-        db.add(deck_obj)
-        db.flush()
-
-        for card_data in cards:
-            card = Flashcard(deck_id=deck_obj.id, **card_data)
-            db.add(card)
-            db.flush()
-            vocab = UserVocabularyState(flashcard_id=card.id)
-            db.add(vocab)
-
-        db.commit()
-        logger.info(f"Seeded {len(cards)} flashcards in Starter Deck")
     db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    logger.info("Initializing database...")
     init_db()
-    logger.info("Database initialized.")
     _seed_scenarios()
-    _seed_flashcards()
     yield
 
 

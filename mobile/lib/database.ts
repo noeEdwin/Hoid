@@ -158,6 +158,43 @@ export function seedHSKCourse(): void {
   }
 }
 
+const MASTER_DECK_ID = "a0000000-0000-0000-0000-000000000001";
+
+export function seedMasterDeck(): void {
+  const db = getDb();
+  const existing = db.select().from(deck).where(eq(deck.id, MASTER_DECK_ID)).get();
+  if (existing) return;
+
+  db.insert(deck)
+    .values({ id: MASTER_DECK_ID, name: "HSK Master Deck", description: "All HSK vocabulary across all topics" })
+    .run();
+
+  let cardIndex = 0;
+  for (const cards of Object.values(hskCourse)) {
+    for (const card of cards) {
+      const cardId = uuid();
+      db.insert(flashcard)
+        .values({
+          id: cardId,
+          deckId: MASTER_DECK_ID,
+          cardType: "cloze_deletion",
+          sentence: card.sentence,
+          sentencePinyin: card.sentence_pinyin,
+          answer: card.answer,
+          answerPinyin: card.answer_pinyin,
+          context: card.context,
+          contextPinyin: card.context_pinyin,
+          imagePath: card.image_path,
+        })
+        .run();
+      db.insert(userVocabularyState)
+        .values({ id: uuid(), flashcardId: cardId })
+        .run();
+      cardIndex++;
+    }
+  }
+}
+
 export function getAllDecks() {
   const db = getDb();
   return db.select().from(deck).all();
