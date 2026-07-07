@@ -74,9 +74,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setDailyReviewLimit: (limit: number) => {
     const clamped = Math.max(5, Math.min(100, limit));
-    const { deckReviewHistory, reviewedDates } = get();
-    set({ dailyReviewLimit: clamped });
-    writeSettingsFile({ dailyReviewLimit: clamped, deckReviewHistory, reviewedDates });
+    const { dailyReviewLimit: oldLimit, deckReviewHistory, reviewedDates } = get();
+    const today = getTodayString();
+
+    let updatedHistory = deckReviewHistory;
+    if (clamped > oldLimit) {
+      updatedHistory = Object.fromEntries(
+        Object.entries(deckReviewHistory).filter(([_, date]) => date !== today)
+      );
+    }
+
+    set({ dailyReviewLimit: clamped, deckReviewHistory: updatedHistory });
+    writeSettingsFile({ dailyReviewLimit: clamped, deckReviewHistory: updatedHistory, reviewedDates });
   },
 
   markDeckReviewed: (deckId: string) => {

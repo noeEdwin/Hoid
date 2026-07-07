@@ -12,11 +12,16 @@ export default function SettingsScreen() {
   const setDailyReviewLimit = useSettingsStore((s) => s.setDailyReviewLimit);
 
   const [limitText, setLimitText] = useState(String(dailyReviewLimit));
+  const [savedLimit, setSavedLimit] = useState(dailyReviewLimit);
+
+  const parsed = parseInt(limitText, 10);
+  const hasChanges = !isNaN(parsed) && parsed !== savedLimit;
 
   const handleSave = () => {
     const num = parseInt(limitText, 10);
     if (!isNaN(num)) {
       setDailyReviewLimit(num);
+      setSavedLimit(num);
     }
   };
 
@@ -46,13 +51,20 @@ export default function SettingsScreen() {
                   style={styles.input}
                   value={limitText}
                   onChangeText={setLimitText}
-                  onBlur={handleSave}
                   keyboardType="number-pad"
                   maxLength={3}
                 />
                 <Text style={styles.unit}>张</Text>
               </View>
             </View>
+
+            {hasChanges && (
+              <View style={styles.saveRow}>
+                <Pressable onPress={handleSave} style={styles.saveBtn}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -142,5 +154,20 @@ const styles = StyleSheet.create({
     fontSize: normalize(15),
     color: "#757575",
     marginLeft: 4,
+  },
+  saveRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+  },
+  saveBtn: {
+    backgroundColor: "#005bbd",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  saveBtnText: {
+    color: "white",
+    fontSize: normalize(14),
+    fontWeight: "600",
   },
 });

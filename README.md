@@ -91,6 +91,12 @@ uv run pytest backend/tests/test_stt.py::TestTranscribeAudio -v
 uv run pytest -v --tb=short
 ```
 
+# Android builds:
+```
+eas build --profile preview --platform android
+eas build --profile development --platform android
+```
+
 ### Test Categories
 
 | Category | Marker | Requires | Description |
