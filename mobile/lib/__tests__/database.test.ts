@@ -18,23 +18,6 @@ jest.mock("expo-crypto", () => ({
   randomUUID: jest.fn(() => "test-uuid-" + Math.random().toString(36).slice(2)),
 }));
 
-jest.mock("../../data/starter-deck.json", () => [
-  { sentence: "我___你", sentence_pinyin: "wǒ ài nǐ", answer: "爱", answer_pinyin: "ài", context: "love", context_pinyin: "love" },
-  { sentence: "他是我的___", sentence_pinyin: "tā shì wǒ de péngyǒu", answer: "朋友", answer_pinyin: "péngyǒu", context: "friend", context_pinyin: "friend" },
-  { sentence: "我想___一杯咖啡", sentence_pinyin: "wǒ xiǎng hē yī bēi kāfēi", answer: "喝", answer_pinyin: "hē", context: "drink", context_pinyin: "drink" },
-  { sentence: "今天天气很___", sentence_pinyin: "jīntiān tiānqì hěn hǎo", answer: "好", answer_pinyin: "hǎo", context: "good", context_pinyin: "good" },
-  { sentence: "我___你谢谢", sentence_pinyin: "wǒ gǎnxiè nǐ", answer: "感谢", answer_pinyin: "gǎnxiè", context: "thanks", context_pinyin: "thanks" },
-]);
-
-jest.mock("../../data/hsk-course.json", () => ({
-  "Clothing & Shopping": [
-    { sentence: "这件___多少钱？", sentence_pinyin: "zhè jiàn chènshān duōshǎo qián?", answer: "衬衫", answer_pinyin: "chènshān", context: "shirts", context_pinyin: "chènshān" },
-  ],
-  "Food & Taste": [
-    { sentence: "吃___对身体有帮助吗？", sentence_pinyin: "chī jīdàn duì shēntǐ yǒu bāngzhù ma?", answer: "鸡蛋", answer_pinyin: "jīdàn", context: "eggs", context_pinyin: "jīdàn" },
-  ],
-}));
-
 const mockDb = {
   select: jest.fn(),
   insert: jest.fn(),
@@ -49,6 +32,10 @@ jest.mock("drizzle-orm/expo-sqlite", () => ({
 jest.mock("drizzle-orm", () => ({
   eq: jest.fn((a: any, b: any) => ({ type: "eq", a, b })),
   desc: jest.fn((a: any) => ({ type: "desc", a })),
+  gt: jest.fn((a: any, b: any) => ({ type: "gt", a, b })),
+  or: jest.fn((...args: any[]) => ({ type: "or", args })),
+  count: jest.fn(() => ({ type: "count" })),
+  inArray: jest.fn((a: any, b: any) => ({ type: "inArray", a, b })),
 }));
 
 import { getDb } from "../database";
@@ -220,6 +207,16 @@ describe("clearPendingReviews", () => {
 
     expect(mockDb.delete).toHaveBeenCalled();
   });
+
+  it("deletes only processed pending reviews when ids are provided", () => {
+    const chain = setupMockChain(undefined);
+    mockDb.delete.mockReturnValue(chain);
+
+    const { clearPendingReviews } = require("../database");
+    clearPendingReviews(["review-1", "review-2"]);
+
+    expect(chain.where).toHaveBeenCalled();
+  });
 });
 
 describe("createDeck", () => {
@@ -276,6 +273,36 @@ describe("createFlashcard", () => {
 
     expect(result).toEqual(card);
   });
+
+  it("returns existing flashcard when content matches", () => {
+    const existingCard = {
+      id: "card-1",
+      deckId: "deck-1",
+      sentence: "我___你",
+      sentencePinyin: "wǒ ___ nǐ",
+      answer: "爱",
+      answerPinyin: "ài",
+      context: null,
+      contextPinyin: null,
+      cardType: "cloze_deletion",
+    };
+    const selectChain = setupMockChain([existingCard]);
+    mockDb.select.mockReturnValue(selectChain);
+    mockDb.insert.mockReturnValue(setupMockChain(undefined));
+
+    const { createFlashcard } = require("../database");
+
+    const result = createFlashcard({
+      deckId: "deck-1",
+      sentence: "我___你",
+      sentencePinyin: "WǑ ___ NǏ",
+      answer: "爱",
+      answerPinyin: "ÀI",
+    });
+
+    expect(result).toEqual(existingCard);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteFlashcard", () => {
@@ -289,44 +316,3 @@ describe("deleteFlashcard", () => {
     expect(mockDb.delete).toHaveBeenCalledTimes(3);
   });
 });
-
-describe("seedHSKCourse", () => {
-  it("creates topic decks when they don't exist", () => {
-    const selectChain = setupMockChain(undefined);
-    mockDb.select.mockReturnValue(selectChain);
-
-    const insertChain = setupMockChain(undefined);
-    mockDb.insert.mockReturnValue(insertChain);
-
-    const { seedHSKCourse } = require("../database");
-    seedHSKCourse();
-
-    expect(mockDb.insert).toHaveBeenCalled();
-  });
-
-  it("skips existing topic decks", () => {
-    const existingDeck = { id: "existing", name: "Clothing & Shopping" };
-    const selectChain = setupMockChain(existingDeck);
-    mockDb.select.mockReturnValue(selectChain);
-
-    const { seedHSKCourse } = require("../database");
-    seedHSKCourse();
-
-    expect(mockDb.insert).not.toHaveBeenCalled();
-  });
-
-  it("creates master HSK Course deck", () => {
-    const selectChain = setupMockChain(undefined);
-    mockDb.select.mockReturnValue(selectChain);
-
-    const insertChain = setupMockChain(undefined);
-    mockDb.insert.mockReturnValue(insertChain);
-
-    const { seedHSKCourse } = require("../database");
-    seedHSKCourse();
-
-    expect(mockDb.insert).toHaveBeenCalled();
-  });
-});
-
-

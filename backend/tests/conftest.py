@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import text
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
@@ -22,6 +23,7 @@ def db_session() -> Generator[Session, None, None]:
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
+        session.exec(text("PRAGMA foreign_keys = ON"))
         yield session
 
 
@@ -33,7 +35,7 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     from app.main import app
 
     app.dependency_overrides[get_session] = _override_session
-    with patch("app.main._seed_flashcards"), patch("app.main._seed_scenarios"):
+    with patch("app.main._seed_scenarios"):
         with TestClient(app) as c:
             yield c
     app.dependency_overrides.clear()

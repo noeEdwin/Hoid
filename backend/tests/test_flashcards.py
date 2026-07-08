@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models.flashcard import Flashcard, UserVocabularyState
 
@@ -37,6 +37,64 @@ class TestCreateFlashcard:
         assert data["deck_id"] == deck_id
         assert "id" in data
         assert "created_at" in data
+
+    def test_create_reuses_existing_duplicate_content(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        from app.models.flashcard import Deck
+
+        deck = Deck(name="Import Deck")
+        db_session.add(deck)
+        db_session.commit()
+        db_session.refresh(deck)
+
+        first = client.post("/api/flashcards", json={
+            "deck_id": deck.id,
+            "sentence": "我___你",
+            "sentence_pinyin": "wǒ ___ nǐ",
+            "answer": "爱",
+            "answer_pinyin": "ài",
+            "context": "example",
+            "context_pinyin": "example",
+        }).json()
+        second = client.post("/api/flashcards", json={
+            "deck_id": deck.id,
+            "sentence": " 我___你 ",
+            "sentence_pinyin": "WǑ ___ NǏ",
+            "answer": "爱",
+            "answer_pinyin": "ÀI",
+            "context": "example",
+            "context_pinyin": "example",
+        }).json()
+
+        assert first["id"] == second["id"]
+        cards = db_session.exec(select(Flashcard).where(Flashcard.deck_id == deck.id)).all()
+        assert len(cards) == 1
+
+
+class TestBulkCreateFlashcards:
+    def test_bulk_skips_duplicate_content(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        from app.models.flashcard import Deck
+
+        deck = Deck(name="Bulk Deck")
+        db_session.add(deck)
+        db_session.commit()
+        db_session.refresh(deck)
+
+        result = client.post(
+            f"/api/decks/{deck.id}/flashcards/bulk",
+            json={
+                "flashcards": [
+                    {"sentence": "我___你", "answer": "爱"},
+                    {"sentence": "我___你", "answer": "爱"},
+                ]
+            },
+        ).json()
+
+        assert result["created"] == 1
+        assert result["errors"] == ["Card 2: duplicate skipped"]
 
 
 class TestListFlashcards:

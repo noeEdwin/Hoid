@@ -2,6 +2,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
 import {
+  ApiError,
   fetchDecks,
   fetchFlashcards,
   fetchReviewQueue,
@@ -30,6 +31,12 @@ function mockJsonResponse(data: any, ok = true, status = 200) {
 
 function mockNetworkError() {
   mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
+}
+
+function mockAbortError() {
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  mockFetch.mockRejectedValue(error);
 }
 
 describe("fetchDecks", () => {
@@ -202,13 +209,26 @@ describe("error handling", () => {
   it("network error propagates", async () => {
     mockNetworkError();
 
-    await expect(fetchReviewQueue("d1")).rejects.toThrow();
+    await expect(fetchReviewQueue("d1")).rejects.toMatchObject({
+      code: "network",
+    } satisfies Partial<ApiError>);
   });
 
   it("HTTP error includes status code", async () => {
     mockJsonResponse({ detail: "Validation error" }, false, 422);
 
-    await expect(submitReview("f1", true, 1000)).rejects.toThrow("422");
+    await expect(submitReview("f1", true, 1000)).rejects.toMatchObject({
+      code: "http",
+      status: 422,
+    } satisfies Partial<ApiError>);
+  });
+
+  it("timeout error is normalized", async () => {
+    mockAbortError();
+
+    await expect(fetchDecks()).rejects.toMatchObject({
+      code: "timeout",
+    } satisfies Partial<ApiError>);
   });
 });
 
@@ -219,13 +239,14 @@ describe("pushSync", () => {
       flashcards_upserted: 5,
       states_upserted: 5,
       reviews_processed: 3,
+      processed_pending_review_ids: ["r1"],
     });
 
     const result = await pushSync({
       decks: [{ id: "d1", name: "HSK 1", description: null }],
       flashcards: [],
       vocabulary_states: [],
-      pending_reviews: [],
+      pending_reviews: [{ id: "r1", flashcard_id: "f1", is_correct: true, response_time_ms: 1000 }],
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -236,12 +257,13 @@ describe("pushSync", () => {
           decks: [{ id: "d1", name: "HSK 1", description: null }],
           flashcards: [],
           vocabulary_states: [],
-          pending_reviews: [],
+          pending_reviews: [{ id: "r1", flashcard_id: "f1", is_correct: true, response_time_ms: 1000 }],
         }),
       })
     );
     expect(result.decks_upserted).toBe(1);
     expect(result.reviews_processed).toBe(3);
+    expect(result.processed_pending_review_ids).toEqual(["r1"]);
   });
 });
 

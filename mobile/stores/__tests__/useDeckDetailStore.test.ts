@@ -4,6 +4,12 @@ jest.mock("../../lib/database", () => ({
   createFlashcard: jest.fn(),
   updateFlashcard: jest.fn(),
   deleteFlashcard: jest.fn(),
+  getAllDecks: jest.fn(() => []),
+  getTotalCardCount: jest.fn(() => 0),
+  getFailingTokens: jest.fn(() => []),
+  deleteDeck: jest.fn(),
+  updateDeck: jest.fn(),
+  updateFlashcardAudioPath: jest.fn(),
 }));
 
 import { useDeckDetailStore } from "../useDeckDetailStore";

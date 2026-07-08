@@ -1,4 +1,27 @@
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.3.11:8000";
+const DEFAULT_TIMEOUT_MS = 5000;
+
+export type ApiErrorCode = "timeout" | "network" | "http" | "unknown";
+
+export class ApiError extends Error {
+  code: ApiErrorCode;
+  status?: number;
+
+  constructor(message: string, code: ApiErrorCode, status?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+interface ApiFetchOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
+export function getApiBase(): string {
+  return API_BASE;
+}
 
 export interface ApiDeck {
   id: string;
@@ -48,13 +71,35 @@ export interface ApiDifficultToken {
   total_failures: number;
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> {
+  const controller = new AbortController();
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new ApiError(`API error: ${res.status}`, "http", res.status);
+    }
+    return res.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError(`Request timeout after ${timeoutMs}ms`, "timeout");
+    }
+    if (error instanceof TypeError) {
+      throw new ApiError(error.message || "Failed to fetch", "network");
+    }
+    throw new ApiError("Unknown API error", "unknown");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchDecks(): Promise<ApiDeck[]> {
@@ -222,6 +267,7 @@ export interface SyncVocabStateItem {
 }
 
 export interface SyncPendingReviewItem {
+  id: string;
   flashcard_id: string;
   is_correct: boolean;
   response_time_ms: number;
@@ -241,6 +287,7 @@ export interface SyncPushResponse {
   flashcards_upserted: number;
   states_upserted: number;
   reviews_processed: number;
+  processed_pending_review_ids: string[];
 }
 
 export interface SyncPullResponse {
@@ -254,12 +301,15 @@ export async function pushSync(data: SyncPushRequest): Promise<SyncPushResponse>
   return apiFetch<SyncPushResponse>("/api/sync/push", {
     method: "POST",
     body: JSON.stringify(data),
+    timeoutMs: DEFAULT_TIMEOUT_MS,
   });
 }
 
 export async function pullSync(since?: string): Promise<SyncPullResponse> {
   const query = since ? `?since=${encodeURIComponent(since)}` : "";
-  return apiFetch<SyncPullResponse>(`/api/sync/pull${query}`);
+  return apiFetch<SyncPullResponse>(`/api/sync/pull${query}`, {
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  });
 }
 
 export async function generateTTS(text: string): Promise<Blob> {

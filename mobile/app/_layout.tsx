@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { performSync } from "../lib/sync";
-import { seedHSKCourse, seedMasterDeck } from "../lib/database";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import { useVocabularyStore } from "../stores/useVocabularyStore";
 
@@ -12,9 +11,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadSettings();
-    seedHSKCourse();
-    seedMasterDeck();
-    performSync().then(() => {
+    performSync().then((result) => {
+      if (result.status !== "success") {
+        console.warn("[sync] startup sync result:", result.message);
+      }
       useVocabularyStore.getState().loadLocalData();
     });
   }, []);

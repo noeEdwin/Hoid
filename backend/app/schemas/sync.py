@@ -43,6 +43,7 @@ class SyncVocabStateItem(BaseModel):
 
 
 class SyncPendingReviewItem(BaseModel):
+    id: str
     flashcard_id: str
     is_correct: bool
     response_time_ms: int
@@ -62,6 +63,7 @@ class SyncPushResponse(BaseModel):
     flashcards_upserted: int = 0
     states_upserted: int = 0
     reviews_processed: int = 0
+    processed_pending_review_ids: list[str] = []
 
 
 class SyncPullResponse(BaseModel):

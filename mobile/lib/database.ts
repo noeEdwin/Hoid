@@ -1,9 +1,8 @@
 import * as SQLite from "expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
-import { eq, desc, gt, or, count } from "drizzle-orm";
+import { eq, desc, gt, or, count, inArray } from "drizzle-orm";
 import * as crypto from "expo-crypto";
 import { File, Paths } from "expo-file-system";
-import hskCourse from "../data/hsk-course.json";
 import {
   deck,
   flashcard,
@@ -24,6 +23,153 @@ function uuid(): string {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function normalizeText(value?: string | null, lowercase: boolean = false): string | null {
+  if (value == null) return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  return lowercase ? normalized.toLowerCase() : normalized;
+}
+
+function flashcardIdentityKey(data: {
+  deckId: string;
+  cardType?: string | null;
+  sentence?: string | null;
+  sentencePinyin?: string | null;
+  answer?: string | null;
+  answerPinyin?: string | null;
+  context?: string | null;
+  contextPinyin?: string | null;
+}): string {
+  return JSON.stringify([
+    data.deckId,
+    normalizeText(data.cardType) ?? "cloze_deletion",
+    normalizeText(data.sentence),
+    normalizeText(data.sentencePinyin, true),
+    normalizeText(data.answer),
+    normalizeText(data.answerPinyin, true),
+    normalizeText(data.context),
+    normalizeText(data.contextPinyin, true),
+  ]);
+}
+
+function mergeFlashcardMetadata(
+  primary: ReturnType<typeof getFlashcardById>,
+  duplicate: ReturnType<typeof getFlashcardById>
+) {
+  if (!primary || !duplicate) return;
+  const updates: Partial<{
+    sentence: string;
+    sentencePinyin: string;
+    answer: string;
+    answerPinyin: string;
+    context: string;
+    contextPinyin: string;
+    imagePath: string;
+    audioPath: string;
+  }> = {};
+
+  if (!primary.sentence && duplicate.sentence) updates.sentence = duplicate.sentence;
+  if (!primary.sentencePinyin && duplicate.sentencePinyin) updates.sentencePinyin = duplicate.sentencePinyin;
+  if (!primary.answer && duplicate.answer) updates.answer = duplicate.answer;
+  if (!primary.answerPinyin && duplicate.answerPinyin) updates.answerPinyin = duplicate.answerPinyin;
+  if (!primary.context && duplicate.context) updates.context = duplicate.context;
+  if (!primary.contextPinyin && duplicate.contextPinyin) updates.contextPinyin = duplicate.contextPinyin;
+  if (!primary.imagePath && duplicate.imagePath) updates.imagePath = duplicate.imagePath;
+  if (!primary.audioPath && duplicate.audioPath) updates.audioPath = duplicate.audioPath;
+
+  if (Object.keys(updates).length > 0) {
+    updateFlashcard(primary.id, updates);
+  }
+}
+
+function mergeVocabularyStates(primaryFlashcardId: string, duplicateFlashcardId: string): void {
+  const db = getDb();
+  const primary = getVocabularyState(primaryFlashcardId);
+  const duplicate = getVocabularyState(duplicateFlashcardId);
+
+  if (!duplicate) return;
+
+  if (!primary) {
+    db.update(userVocabularyState)
+      .set({ flashcardId: primaryFlashcardId, updatedAt: nowIso() })
+      .where(eq(userVocabularyState.flashcardId, duplicateFlashcardId))
+      .run();
+    return;
+  }
+
+  const primaryUpdatedAt = primary.updatedAt ?? "";
+  const duplicateUpdatedAt = duplicate.updatedAt ?? "";
+  const latest = duplicateUpdatedAt > primaryUpdatedAt ? duplicate : primary;
+
+  db.update(userVocabularyState)
+    .set({
+      srsInterval: Math.max(primary.srsInterval ?? 0, duplicate.srsInterval ?? 0),
+      easeFactor: latest.easeFactor ?? primary.easeFactor ?? duplicate.easeFactor ?? 2.5,
+      totalReviews: Math.max(primary.totalReviews ?? 0, duplicate.totalReviews ?? 0),
+      totalFailures: Math.max(primary.totalFailures ?? 0, duplicate.totalFailures ?? 0),
+      consecutiveFailures: latest.consecutiveFailures ?? 0,
+      consecutiveCorrect: latest.consecutiveCorrect ?? 0,
+      difficultyScore: latest.difficultyScore ?? primary.difficultyScore ?? duplicate.difficultyScore ?? 0,
+      updatedAt: latest.updatedAt ?? nowIso(),
+    })
+    .where(eq(userVocabularyState.flashcardId, primaryFlashcardId))
+    .run();
+
+  db.delete(userVocabularyState)
+    .where(eq(userVocabularyState.flashcardId, duplicateFlashcardId))
+    .run();
+}
+
+function chooseCanonicalFlashcard(
+  cards: ReturnType<typeof getFlashcardsByDeck>
+): ReturnType<typeof getFlashcardById> {
+  return [...cards].sort((a, b) => {
+    const aState = getVocabularyState(a.id);
+    const bState = getVocabularyState(b.id);
+    const aScore = aState?.totalReviews ?? 0;
+    const bScore = bState?.totalReviews ?? 0;
+    if (aScore !== bScore) return bScore - aScore;
+    const aCreated = a.createdAt ?? "";
+    const bCreated = b.createdAt ?? "";
+    if (aCreated !== bCreated) return aCreated.localeCompare(bCreated);
+    return a.id.localeCompare(b.id);
+  })[0];
+}
+
+function dedupeDeckFlashcards(deckId: string): number {
+  const db = getDb();
+  const cards = getFlashcardsByDeck(deckId);
+  const groups = new Map<string, ReturnType<typeof getFlashcardsByDeck>>();
+
+  for (const card of cards) {
+    const key = flashcardIdentityKey(card);
+    const existing = groups.get(key) ?? [];
+    existing.push(card);
+    groups.set(key, existing);
+  }
+
+  let removed = 0;
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const canonical = chooseCanonicalFlashcard(group);
+    for (const duplicate of group) {
+      if (duplicate.id === canonical.id) continue;
+      mergeFlashcardMetadata(canonical, duplicate);
+      mergeVocabularyStates(canonical.id, duplicate.id);
+      db.update(pendingReview)
+        .set({ flashcardId: canonical.id })
+        .where(eq(pendingReview.flashcardId, duplicate.id))
+        .run();
+      db.delete(flashcard)
+        .where(eq(flashcard.id, duplicate.id))
+        .run();
+      removed += 1;
+    }
+  }
+
+  return removed;
 }
 
 function getSqlite(): ReturnType<typeof SQLite.openDatabaseSync> {
@@ -123,78 +269,6 @@ export function getDb() {
   return _db;
 }
 
-export function seedHSKCourse(): void {
-  const db = getDb();
-
-  for (const [topic, cards] of Object.entries(hskCourse)) {
-    const existing = db.select().from(deck).where(eq(deck.name, topic)).get();
-    if (existing) continue;
-
-    const deckId = uuid();
-    db.insert(deck)
-      .values({ id: deckId, name: topic, description: `HSK vocabulary: ${topic}` })
-      .run();
-
-    for (const card of cards) {
-      const cardId = uuid();
-      db.insert(flashcard)
-        .values({
-          id: cardId,
-          deckId,
-          cardType: "cloze_deletion",
-          sentence: card.sentence,
-          sentencePinyin: card.sentence_pinyin,
-          answer: card.answer,
-          answerPinyin: card.answer_pinyin,
-          context: card.context,
-          contextPinyin: card.context_pinyin,
-          imagePath: card.image_path,
-        })
-        .run();
-      db.insert(userVocabularyState)
-        .values({ id: uuid(), flashcardId: cardId })
-        .run();
-    }
-  }
-}
-
-const MASTER_DECK_ID = "a0000000-0000-0000-0000-000000000001";
-
-export function seedMasterDeck(): void {
-  const db = getDb();
-  const existing = db.select().from(deck).where(eq(deck.id, MASTER_DECK_ID)).get();
-  if (existing) return;
-
-  db.insert(deck)
-    .values({ id: MASTER_DECK_ID, name: "HSK Master Deck", description: "All HSK vocabulary across all topics" })
-    .run();
-
-  let cardIndex = 0;
-  for (const cards of Object.values(hskCourse)) {
-    for (const card of cards) {
-      const cardId = uuid();
-      db.insert(flashcard)
-        .values({
-          id: cardId,
-          deckId: MASTER_DECK_ID,
-          cardType: "cloze_deletion",
-          sentence: card.sentence,
-          sentencePinyin: card.sentence_pinyin,
-          answer: card.answer,
-          answerPinyin: card.answer_pinyin,
-          context: card.context,
-          contextPinyin: card.context_pinyin,
-          imagePath: card.image_path,
-        })
-        .run();
-      db.insert(userVocabularyState)
-        .values({ id: uuid(), flashcardId: cardId })
-        .run();
-      cardIndex++;
-    }
-  }
-}
-
 export function getAllDecks() {
   const db = getDb();
   return db.select().from(deck).all();
@@ -241,6 +315,13 @@ export function createFlashcard(data: {
   imagePath?: string;
   audioPath?: string;
 }) {
+  const existing = getFlashcardsByDeck(data.deckId).find(
+    (card) => flashcardIdentityKey(card) === flashcardIdentityKey(data)
+  );
+  if (existing) {
+    return existing;
+  }
+
   const db = getDb();
   const id = uuid();
   const now = nowIso();
@@ -428,9 +509,23 @@ export function getPendingReviews() {
   return db.select().from(pendingReview).all();
 }
 
-export function clearPendingReviews() {
+export function clearPendingReviews(reviewIds?: string[]) {
   const db = getDb();
-  db.delete(pendingReview).run();
+  if (reviewIds && reviewIds.length > 0) {
+    db.delete(pendingReview)
+      .where(inArray(pendingReview.id, reviewIds))
+      .run();
+    return;
+  }
+  if (!reviewIds) {
+    db.delete(pendingReview).run();
+  }
+}
+
+export function dedupeLocalFlashcards(): number {
+  return getAllDecks().reduce((removed, currentDeck) => {
+    return removed + dedupeDeckFlashcards(currentDeck.id);
+  }, 0);
 }
 
 export function getTotalCardCount() {

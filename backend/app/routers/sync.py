@@ -18,6 +18,7 @@ from app.schemas.sync import (
     SyncPushResponse,
     SyncVocabStateItem,
 )
+from app.services.flashcard_identity import find_matching_flashcard
 from app.schemas.review import ReviewRating
 from app.services.srs import (
     calculate_mastery_correct,
@@ -31,45 +32,105 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["sync"])
 
 
+def _parse_item_timestamp(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _is_incoming_stale(
+    incoming_updated_at: str | None,
+    existing_updated_at: datetime | None,
+) -> bool:
+    incoming_dt = _parse_item_timestamp(incoming_updated_at)
+    if incoming_dt is None or existing_updated_at is None:
+        return False
+    return incoming_dt <= existing_updated_at.replace(tzinfo=None)
+
+
 def _upsert_deck(session: Session, item: SyncDeckItem) -> bool:
-    now = datetime.utcnow()
     existing = session.get(Deck, item.id)
     if existing:
+        if _is_incoming_stale(item.updated_at, existing.updated_at):
+            return False
         existing.name = item.name
         existing.description = item.description
-        existing.updated_at = now
+        existing.created_at = _parse_item_timestamp(item.created_at) or existing.created_at
+        existing.updated_at = _parse_item_timestamp(item.updated_at) or datetime.utcnow()
         session.add(existing)
         return False
-    return False
+    session.add(
+        Deck(
+            id=item.id,
+            name=item.name,
+            description=item.description,
+            created_at=_parse_item_timestamp(item.created_at) or datetime.utcnow(),
+            updated_at=_parse_item_timestamp(item.updated_at) or datetime.utcnow(),
+        )
+    )
+    return True
 
 
-def _upsert_flashcard(session: Session, item: SyncFlashcardItem) -> bool:
-    now = datetime.utcnow()
+def _apply_flashcard_sync_item(target: Flashcard, item: SyncFlashcardItem) -> None:
+    target.deck_id = item.deck_id
+    target.card_type = item.card_type
+    target.sentence = item.sentence
+    target.sentence_pinyin = item.sentence_pinyin
+    target.answer = item.answer
+    target.answer_pinyin = item.answer_pinyin
+    target.context = item.context
+    target.context_pinyin = item.context_pinyin
+    target.image_path = item.image_path
+    target.audio_path = item.audio_path
+    target.created_at = _parse_item_timestamp(item.created_at) or target.created_at
+    target.updated_at = _parse_item_timestamp(item.updated_at) or datetime.utcnow()
+
+
+def _upsert_flashcard(session: Session, item: SyncFlashcardItem) -> tuple[bool, str]:
     existing = session.get(Flashcard, item.id)
     if existing:
-        existing.sentence = item.sentence
-        existing.sentence_pinyin = item.sentence_pinyin
-        existing.answer = item.answer
-        existing.answer_pinyin = item.answer_pinyin
-        existing.context = item.context
-        existing.context_pinyin = item.context_pinyin
-        existing.image_path = item.image_path
-        existing.audio_path = item.audio_path
-        existing.card_type = item.card_type
-        existing.updated_at = now
+        if _is_incoming_stale(item.updated_at, existing.updated_at):
+            return False, existing.id
+        _apply_flashcard_sync_item(existing, item)
         session.add(existing)
-        return False
-    return False
+        return False, existing.id
+
+    duplicate = find_matching_flashcard(
+        session,
+        deck_id=item.deck_id,
+        card_type=item.card_type,
+        sentence=item.sentence,
+        sentence_pinyin=item.sentence_pinyin,
+        answer=item.answer,
+        answer_pinyin=item.answer_pinyin,
+        context=item.context,
+        context_pinyin=item.context_pinyin,
+    )
+    if duplicate:
+        if _is_incoming_stale(item.updated_at, duplicate.updated_at):
+            return False, duplicate.id
+        _apply_flashcard_sync_item(duplicate, item)
+        session.add(duplicate)
+        return False, duplicate.id
+
+    created = Flashcard(id=item.id)
+    _apply_flashcard_sync_item(created, item)
+    session.add(created)
+    return True, created.id
 
 
 def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
-    now = datetime.utcnow()
     existing = session.exec(
         select(UserVocabularyState).where(
             UserVocabularyState.flashcard_id == item.flashcard_id
         )
     ).first()
     if existing:
+        if _is_incoming_stale(item.updated_at, existing.updated_at):
+            return False
         existing.srs_interval = item.srs_interval
         existing.ease_factor = item.ease_factor
         existing.total_reviews = item.total_reviews
@@ -77,7 +138,7 @@ def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
         existing.consecutive_failures = item.consecutive_failures
         existing.consecutive_correct = item.consecutive_correct
         existing.difficulty_score = item.difficulty_score
-        existing.updated_at = now
+        existing.updated_at = _parse_item_timestamp(item.updated_at) or datetime.utcnow()
         session.add(existing)
         return False
     state = UserVocabularyState(
@@ -89,7 +150,7 @@ def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
         consecutive_failures=item.consecutive_failures,
         consecutive_correct=item.consecutive_correct,
         difficulty_score=item.difficulty_score,
-        updated_at=now,
+        updated_at=_parse_item_timestamp(item.updated_at) or datetime.utcnow(),
     )
     session.add(state)
     return True
@@ -151,22 +212,39 @@ def sync_push(
     flashcards_upserted = 0
     states_upserted = 0
     reviews_processed = 0
+    processed_pending_review_ids: list[str] = []
+    flashcard_id_map: dict[str, str] = {}
 
     for deck_item in data.decks:
         if _upsert_deck(session, deck_item):
             decks_upserted += 1
 
     for fc_item in data.flashcards:
-        if _upsert_flashcard(session, fc_item):
+        created, canonical_id = _upsert_flashcard(session, fc_item)
+        flashcard_id_map[fc_item.id] = canonical_id
+        if created:
             flashcards_upserted += 1
 
     for vs_item in data.vocabulary_states:
-        if _upsert_vocab_state(session, vs_item):
+        canonical_id = flashcard_id_map.get(vs_item.flashcard_id, vs_item.flashcard_id)
+        target_item = (
+            vs_item
+            if canonical_id == vs_item.flashcard_id
+            else vs_item.model_copy(update={"flashcard_id": canonical_id})
+        )
+        if _upsert_vocab_state(session, target_item):
             states_upserted += 1
 
     for review in data.pending_reviews:
-        if _process_pending_review(session, review):
+        canonical_id = flashcard_id_map.get(review.flashcard_id, review.flashcard_id)
+        target_review = (
+            review
+            if canonical_id == review.flashcard_id
+            else review.model_copy(update={"flashcard_id": canonical_id})
+        )
+        if _process_pending_review(session, target_review):
             reviews_processed += 1
+            processed_pending_review_ids.append(review.id)
 
     log = SyncLog(
         direction="push",
@@ -182,6 +260,7 @@ def sync_push(
         flashcards_upserted=flashcards_upserted,
         states_upserted=states_upserted,
         reviews_processed=reviews_processed,
+        processed_pending_review_ids=processed_pending_review_ids,
     )
 
 
@@ -212,8 +291,12 @@ def sync_pull(
     since_str = _parse_iso_timestamp(since)
 
     deck_query = select(Deck)
-    flashcard_query = select(Flashcard)
-    vocab_query = select(UserVocabularyState)
+    flashcard_query = select(Flashcard).join(Deck, Flashcard.deck_id == Deck.id)
+    vocab_query = (
+        select(UserVocabularyState)
+        .join(Flashcard, UserVocabularyState.flashcard_id == Flashcard.id)
+        .join(Deck, Flashcard.deck_id == Deck.id)
+    )
 
     if since_str:
         deck_query = deck_query.where(Deck.updated_at > since_str)

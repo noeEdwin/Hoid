@@ -1,4 +1,9 @@
-import { pushSync as apiPushSync, pullSync as apiPullSync } from "./api";
+import {
+  type ApiErrorCode,
+  getApiBase,
+  pushSync as apiPushSync,
+  pullSync as apiPullSync,
+} from "./api";
 import {
   getAllDecks,
   getFlashcardsByDeck,
@@ -6,30 +11,133 @@ import {
   getPendingReviews,
   clearPendingReviews,
   getDb,
+  dedupeLocalFlashcards,
 } from "./database";
-import { deck, flashcard, userVocabularyState, pendingReview } from "./schema";
-import { eq, inArray } from "drizzle-orm";
+import { deck, flashcard, userVocabularyState } from "./schema";
+import { eq } from "drizzle-orm";
 import * as crypto from "expo-crypto";
 
-export async function performSync(): Promise<void> {
+export type SyncStatus = "success" | "partial" | "failure";
+
+export interface PerformSyncResult {
+  status: SyncStatus;
+  message: string;
+  pushOk: boolean;
+  pullOk: boolean;
+  processedPendingReviewIds: string[];
+  errorCode?: ApiErrorCode;
+  failingStage?: "push" | "pull";
+}
+
+function getSyncFailureMessage(
+  stage: "push" | "pull",
+  error: unknown
+): { errorCode: ApiErrorCode; message: string } {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    const apiError = error as { code: ApiErrorCode; status?: number };
+    if (apiError.code === "timeout") {
+      return {
+        errorCode: apiError.code,
+        message: stage === "push" ? "上传超时（5秒）" : "下载超时（5秒）",
+      };
+    }
+
+    if (apiError.code === "network") {
+      return {
+        errorCode: apiError.code,
+        message: `无法连接服务器：${getApiBase()}`,
+      };
+    }
+
+    if (apiError.code === "http") {
+      return {
+        errorCode: apiError.code,
+        message:
+          stage === "push"
+            ? `上传失败（HTTP ${apiError.status ?? "?"}）`
+            : `下载失败（HTTP ${apiError.status ?? "?"}）`,
+      };
+    }
+  }
+
+  return {
+    errorCode: "unknown",
+    message: stage === "push" ? "上传失败" : "下载失败",
+  };
+}
+
+export async function performSync(): Promise<PerformSyncResult> {
+  let pushOk = false;
+  let pullOk = false;
+  let processedPendingReviewIds: string[] = [];
+  let pushFailure: ReturnType<typeof getSyncFailureMessage> | null = null;
+  let pullFailure: ReturnType<typeof getSyncFailureMessage> | null = null;
+
   try {
-    await pushPendingReviews();
+    const pushResult = await pushPendingReviews();
+    pushOk = true;
+    processedPendingReviewIds = pushResult.processedPendingReviewIds;
   } catch (e) {
     console.warn("[sync] push failed:", e);
+    pushFailure = getSyncFailureMessage("push", e);
   }
   try {
     await pullUpdates();
+    pullOk = true;
   } catch (e) {
     console.warn("[sync] pull failed:", e);
+    pullFailure = getSyncFailureMessage("pull", e);
   }
+
+  if (pushOk && pullOk) {
+    return {
+      status: "success",
+      message: processedPendingReviewIds.length > 0 ? "同步完成，复习记录已更新" : "同步完成",
+      pushOk,
+      pullOk,
+      processedPendingReviewIds,
+    };
+  }
+
+  if (pushOk || pullOk) {
+    return {
+      status: "partial",
+      message: pushOk
+        ? `部分同步完成，${pullFailure?.message ?? "下载失败"}`
+        : `部分同步完成，${pushFailure?.message ?? "上传失败"}`,
+      pushOk,
+      pullOk,
+      processedPendingReviewIds,
+      errorCode: pushOk ? pullFailure?.errorCode : pushFailure?.errorCode,
+      failingStage: pushOk ? "pull" : "push",
+    };
+  }
+
+  return {
+    status: "failure",
+    message: pullFailure?.message ?? pushFailure?.message ?? "同步失败",
+    pushOk,
+    pullOk,
+    processedPendingReviewIds,
+    errorCode: pullFailure?.errorCode ?? pushFailure?.errorCode,
+    failingStage: pullFailure ? "pull" : pushFailure ? "push" : undefined,
+  };
 }
 
-export async function pushPendingReviews(): Promise<void> {
+export async function pushPendingReviews(): Promise<{
+  processedPendingReviewIds: string[];
+}> {
+  dedupeLocalFlashcards();
   const allDecks = getAllDecks();
   const allFlashcards = allDecks.flatMap((d) => getFlashcardsByDeck(d.id));
   const pending = getPendingReviews();
 
-  await apiPushSync({
+  const result = await apiPushSync({
     decks: allDecks.map((d) => ({
       id: d.id,
       name: d.name,
@@ -67,6 +175,7 @@ export async function pushPendingReviews(): Promise<void> {
         updated_at: s!.updatedAt ?? undefined,
       })),
     pending_reviews: pending.map((r) => ({
+      id: r.id,
       flashcard_id: r.flashcardId,
       is_correct: r.isCorrect,
       response_time_ms: r.responseTimeMs,
@@ -74,34 +183,24 @@ export async function pushPendingReviews(): Promise<void> {
     })),
   });
 
-  clearPendingReviews();
+  clearPendingReviews(result.processed_pending_review_ids);
+  return {
+    processedPendingReviewIds: result.processed_pending_review_ids,
+  };
 }
 
 export async function pullUpdates(): Promise<void> {
   const data = await apiPullSync();
   const db = getDb();
-
-  const remoteFlashcardIds = new Set(data.flashcards.map((f) => f.id));
-  const remoteDeckIds = new Set(data.decks.map((d) => d.id));
-
-  const localCards = db.select().from(flashcard).all();
-  const toDeleteCards = localCards.filter((c) => !remoteFlashcardIds.has(c.id));
-  if (toDeleteCards.length > 0) {
-    const deleteIds = toDeleteCards.map((c) => c.id);
-    db.delete(pendingReview).where(inArray(pendingReview.flashcardId, deleteIds)).run();
-    db.delete(userVocabularyState).where(inArray(userVocabularyState.flashcardId, deleteIds)).run();
-    db.delete(flashcard).where(inArray(flashcard.id, deleteIds)).run();
-  }
-
-  const localDecks = db.select().from(deck).all();
-  const toDeleteDecks = localDecks.filter((d) => !remoteDeckIds.has(d.id));
-  if (toDeleteDecks.length > 0) {
-    const deleteDeckIds = toDeleteDecks.map((d) => d.id);
-    db.delete(deck).where(inArray(deck.id, deleteDeckIds)).run();
-  }
+  const localDecks = getAllDecks();
+  const availableDeckIds = new Set<string>(localDecks.map((d) => d.id));
+  const availableFlashcardIds = new Set<string>(
+    localDecks.flatMap((d) => getFlashcardsByDeck(d.id).map((f) => f.id))
+  );
 
   for (const d of data.decks) {
     const existing = db.select().from(deck).where(eq(deck.id, d.id)).get();
+    availableDeckIds.add(d.id);
     if (existing) {
       if (d.updated_at && existing.updatedAt && d.updated_at <= existing.updatedAt) continue;
       db.update(deck).set({ name: d.name, description: d.description, updatedAt: d.updated_at ?? existing.updatedAt }).where(eq(deck.id, d.id)).run();
@@ -111,6 +210,10 @@ export async function pullUpdates(): Promise<void> {
   }
 
   for (const f of data.flashcards) {
+    if (!availableDeckIds.has(f.deck_id)) {
+      console.warn("[sync] skipping flashcard with missing deck:", f.id, f.deck_id);
+      continue;
+    }
     const existing = db.select().from(flashcard).where(eq(flashcard.id, f.id)).get();
     if (existing) {
       if (f.updated_at && existing.updatedAt && f.updated_at <= existing.updatedAt) continue;
@@ -148,10 +251,14 @@ export async function pullUpdates(): Promise<void> {
         })
         .run();
     }
+    availableFlashcardIds.add(f.id);
   }
 
   for (const vs of data.vocabulary_states) {
-    if (!remoteFlashcardIds.has(vs.flashcard_id)) continue;
+    if (!availableFlashcardIds.has(vs.flashcard_id) && !getVocabularyState(vs.flashcard_id)) {
+      console.warn("[sync] skipping vocabulary state with missing flashcard:", vs.flashcard_id);
+      continue;
+    }
     const existing = getVocabularyState(vs.flashcard_id);
     if (existing) {
       if (vs.updated_at && existing.updatedAt && vs.updated_at <= existing.updatedAt) continue;
@@ -185,4 +292,6 @@ export async function pullUpdates(): Promise<void> {
         .run();
     }
   }
+
+  dedupeLocalFlashcards();
 }

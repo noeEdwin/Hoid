@@ -11,7 +11,7 @@ import {
   updateFlashcardAudioPath,
 } from "../lib/database";
 import { useVocabularyStore } from "./useVocabularyStore";
-import { generateTTS, bulkCreateFlashcardsApi } from "../lib/api";
+import { generateTTS } from "../lib/api";
 import type { Flashcard } from "../lib/schema";
 
 interface FlashcardItem {
@@ -213,6 +213,7 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
       const validCards = cards.filter(
         (c: any) => c.answer && typeof c.answer === "string"
       );
+      const beforeCount = getFlashcardsByDeck(deckId).length;
 
       for (const card of validCards) {
         createFlashcard({
@@ -231,24 +232,7 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
       set({ flashcards: cards_after.map(mapFlashcard), isImporting: false });
       useVocabularyStore.getState().loadLocalData();
 
-      try {
-        await bulkCreateFlashcardsApi(
-          deckId,
-          validCards.map((c: any) => ({
-            sentence: c.sentence ?? null,
-            sentence_pinyin: c.sentence_pinyin ?? c.sentencePinyin ?? null,
-            answer: c.answer,
-            answer_pinyin: c.answer_pinyin ?? c.answerPinyin ?? null,
-            context: c.context ?? null,
-            context_pinyin: c.context_pinyin ?? c.contextPinyin ?? null,
-            image_path: c.image_path ?? c.imagePath ?? null,
-          }))
-        );
-      } catch (e) {
-        console.warn("Backend bulk upload failed, cards saved locally:", e);
-      }
-
-      return { created: validCards.length, errors: [] };
+      return { created: cards_after.length - beforeCount, errors: [] };
     } catch (e) {
       console.warn("Bulk import failed:", e);
       set({ isImporting: false });

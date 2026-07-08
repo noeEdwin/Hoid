@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
+from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import settings
-from app.models import (  # noqa: F401 — ensure all tables are registered
+from app.models import ( 
     ChatLog,
     Deck,
     Flashcard,
@@ -23,6 +24,13 @@ engine = create_engine(
     echo=settings.DEBUG,
     connect_args={"check_same_thread": False},
 )
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys = ON")
+    cursor.close()
 
 
 def init_db() -> None:

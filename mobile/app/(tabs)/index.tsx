@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -6,12 +6,25 @@ import { useRouter, useFocusEffect } from "expo-router";
 import UserHeader from "../../components/UserHeader";
 import DeckCarousel from "../../components/DeckCarousel";
 import GlassDock from "../../components/GlassDock";
+import ToastPopup from "../../components/ToastPopup";
 import { useVocabularyStore } from "../../stores/useVocabularyStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
-import { performSync } from "../../lib/sync";
+import { performSync, type SyncStatus } from "../../lib/sync";
+
+type DashboardSyncState = "idle" | "syncing" | SyncStatus;
+type ToastState = { visible: boolean; status: SyncStatus; message: string };
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncState, setSyncState] = useState<DashboardSyncState>("idle");
+  const [syncMessage, setSyncMessage] = useState("");
+  const [toastState, setToastState] = useState<ToastState>({
+    visible: false,
+    status: "success",
+    message: "",
+  });
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const decks = useVocabularyStore((s) => s.decks);
   const totalCards = useVocabularyStore((s) => s.totalCards);
   const loadLocalData = useVocabularyStore((s) => s.loadLocalData);
@@ -25,9 +38,47 @@ export default function DashboardScreen() {
     }, [])
   );
 
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) {
+        clearTimeout(resetTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleStartReview = (deckId: string) => {
     router.push({ pathname: "/deck/[id]", params: { id: deckId } });
   };
+
+  const handleSync = useCallback(async () => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+    }
+    setToastState((current) => ({ ...current, visible: false }));
+    setIsSyncing(true);
+    setSyncState("syncing");
+    setSyncMessage("正在同步...");
+    try {
+      const result = await performSync();
+      if (result.pullOk || result.status === "success") {
+        loadLocalData();
+      }
+      setSyncState(result.status);
+      setSyncMessage(result.message);
+      setToastState({
+        visible: true,
+        status: result.status,
+        message: result.message,
+      });
+      resetTimerRef.current = setTimeout(() => {
+        setSyncState("idle");
+        setSyncMessage("");
+        setToastState((current) => ({ ...current, visible: false }));
+      }, 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [loadLocalData]);
 
   const decksWithStatus = decks
     .map((d) => ({
@@ -39,7 +90,14 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9ff" }} edges={["top"]}>
       <StatusBar style="dark" />
-      <UserHeader totalCards={totalCards} streak={streak} />
+      <UserHeader
+        totalCards={totalCards}
+        streak={streak}
+        isSyncing={isSyncing}
+        onSync={handleSync}
+        syncStatus={syncState}
+        syncMessage={syncMessage}
+      />
 
       <View className="flex-row items-center justify-between px-6 mb-3">
         <Text className="text-xl font-medium text-neutral-900">
@@ -62,6 +120,11 @@ export default function DashboardScreen() {
           </Text>
         </View>
       )}
+      <ToastPopup
+        visible={toastState.visible}
+        status={toastState.status}
+        message={toastState.message}
+      />
       <GlassDock />
     </SafeAreaView>
   );

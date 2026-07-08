@@ -13,6 +13,7 @@ from app.schemas.flashcard import (
     DeckListResponse,
     DeckResponse,
     FlashcardBulkCreate,
+    FlashcardBulkItem,
     FlashcardBulkResponse,
     FlashcardCreate,
     FlashcardListResponse,
@@ -26,6 +27,7 @@ from app.schemas.review import (
     ReviewResponse,
     ReviewSubmit,
 )
+from app.services.flashcard_identity import find_matching_flashcard
 from app.services.srs import (
     MASTERY_THRESHOLD,
     calculate_mastery_correct,
@@ -35,6 +37,33 @@ from app.services.srs import (
 )
 
 router = APIRouter(tags=["flashcards"])
+
+
+def _apply_flashcard_payload(flashcard: Flashcard, data: FlashcardCreate) -> None:
+    flashcard.deck_id = data.deck_id
+    flashcard.card_type = data.card_type
+    flashcard.sentence = data.sentence
+    flashcard.sentence_pinyin = data.sentence_pinyin
+    flashcard.answer = data.answer
+    flashcard.answer_pinyin = data.answer_pinyin
+    flashcard.context = data.context
+    flashcard.context_pinyin = data.context_pinyin
+    flashcard.image_path = data.image_path
+    flashcard.audio_path = data.audio_path
+    flashcard.updated_at = datetime.utcnow()
+
+
+def _apply_bulk_item(flashcard: Flashcard, deck_id: str, item: FlashcardBulkItem) -> None:
+    flashcard.deck_id = deck_id
+    flashcard.card_type = "cloze_deletion"
+    flashcard.sentence = item.sentence
+    flashcard.sentence_pinyin = item.sentence_pinyin
+    flashcard.answer = item.answer
+    flashcard.answer_pinyin = item.answer_pinyin
+    flashcard.context = item.context
+    flashcard.context_pinyin = item.context_pinyin
+    flashcard.image_path = item.image_path
+    flashcard.updated_at = datetime.utcnow()
 
 
 @router.get("/decks", response_model=DeckListResponse)
@@ -124,7 +153,8 @@ def create_flashcard(
     data: FlashcardCreate,
     session: Session = Depends(get_session),
 ) -> FlashcardResponse:
-    flashcard = Flashcard(
+    existing = find_matching_flashcard(
+        session,
         deck_id=data.deck_id,
         card_type=data.card_type,
         sentence=data.sentence,
@@ -133,9 +163,9 @@ def create_flashcard(
         answer_pinyin=data.answer_pinyin,
         context=data.context,
         context_pinyin=data.context_pinyin,
-        image_path=data.image_path,
-        audio_path=data.audio_path,
     )
+    flashcard = existing or Flashcard()
+    _apply_flashcard_payload(flashcard, data)
     session.add(flashcard)
     session.commit()
     session.refresh(flashcard)
@@ -160,7 +190,8 @@ def bulk_create_flashcards(
             errors.append(f"Card {i + 1}: missing 'answer'")
             continue
 
-        flashcard = Flashcard(
+        existing = find_matching_flashcard(
+            session,
             deck_id=str(deck_id),
             card_type="cloze_deletion",
             sentence=item.sentence,
@@ -169,8 +200,13 @@ def bulk_create_flashcards(
             answer_pinyin=item.answer_pinyin,
             context=item.context,
             context_pinyin=item.context_pinyin,
-            image_path=item.image_path,
         )
+        if existing:
+            errors.append(f"Card {i + 1}: duplicate skipped")
+            continue
+
+        flashcard = Flashcard()
+        _apply_bulk_item(flashcard, str(deck_id), item)
         session.add(flashcard)
         created += 1
 
