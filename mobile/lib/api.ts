@@ -71,6 +71,30 @@ export interface ApiDifficultToken {
   total_failures: number;
 }
 
+export interface ApiSrsHealthCard {
+  flashcard_id: string;
+  answer: string;
+  sentence: string;
+  difficulty_score: number;
+  total_reviews: number;
+  total_failures: number;
+  srs_interval: number;
+  last_reviewed_at: string | null;
+  next_review_at: string | null;
+}
+
+export interface ApiSrsHealth {
+  timezone: string;
+  now: string;
+  scheduled_cards: number;
+  unscheduled_reviewed_cards: number;
+  new_cards: number;
+  due_today: number;
+  due_tomorrow: number;
+  hardest_due: ApiSrsHealthCard[];
+  recently_reviewed: ApiSrsHealthCard[];
+}
+
 async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> {
   const controller = new AbortController();
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -155,6 +179,10 @@ export async function fetchDifficultTokens(
     `/api/vocabulary/difficulty?n=${n}`
   );
   return data.difficult_tokens;
+}
+
+export async function fetchSrsHealth(): Promise<ApiSrsHealth> {
+  return apiFetch<ApiSrsHealth>("/api/vocabulary/srs-health");
 }
 
 export async function createDeckApi(
@@ -263,6 +291,8 @@ export interface SyncVocabStateItem {
   consecutive_failures: number;
   consecutive_correct: number;
   difficulty_score: number;
+  last_reviewed_at?: string;
+  next_review_at?: string;
   updated_at?: string;
 }
 

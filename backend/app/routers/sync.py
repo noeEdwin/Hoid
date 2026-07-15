@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select
@@ -138,6 +138,8 @@ def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
         existing.consecutive_failures = item.consecutive_failures
         existing.consecutive_correct = item.consecutive_correct
         existing.difficulty_score = item.difficulty_score
+        existing.last_reviewed_at = _parse_item_timestamp(item.last_reviewed_at)
+        existing.next_review_at = _parse_item_timestamp(item.next_review_at)
         existing.updated_at = _parse_item_timestamp(item.updated_at) or datetime.utcnow()
         session.add(existing)
         return False
@@ -150,6 +152,8 @@ def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
         consecutive_failures=item.consecutive_failures,
         consecutive_correct=item.consecutive_correct,
         difficulty_score=item.difficulty_score,
+        last_reviewed_at=_parse_item_timestamp(item.last_reviewed_at),
+        next_review_at=_parse_item_timestamp(item.next_review_at),
         updated_at=_parse_item_timestamp(item.updated_at) or datetime.utcnow(),
     )
     session.add(state)
@@ -198,6 +202,8 @@ def _process_pending_review(session: Session, review: SyncPendingReviewItem) -> 
     else:
         state.consecutive_failures = 0
     state.updated_at = datetime.utcnow()
+    state.last_reviewed_at = state.updated_at
+    state.next_review_at = state.updated_at + timedelta(days=state.srs_interval)
 
     session.add(state)
     return True
@@ -227,6 +233,12 @@ def sync_push(
 
     for vs_item in data.vocabulary_states:
         canonical_id = flashcard_id_map.get(vs_item.flashcard_id, vs_item.flashcard_id)
+        # Pending events are authoritative for the normal local card identity.
+        # A duplicate identity may still need its state migrated to the canonical card.
+        if canonical_id == vs_item.flashcard_id and any(
+            review.flashcard_id == vs_item.flashcard_id for review in data.pending_reviews
+        ):
+            continue
         target_item = (
             vs_item
             if canonical_id == vs_item.flashcard_id
@@ -356,6 +368,8 @@ def sync_pull(
                 consecutive_failures=v.consecutive_failures,
                 consecutive_correct=v.consecutive_correct,
                 difficulty_score=v.difficulty_score,
+                last_reviewed_at=v.last_reviewed_at.isoformat() if v.last_reviewed_at else None,
+                next_review_at=v.next_review_at.isoformat() if v.next_review_at else None,
                 updated_at=v.updated_at.isoformat() if v.updated_at else None,
             )
             for v in vocab_states

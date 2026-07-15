@@ -1,4 +1,5 @@
 import { useReviewStore, ReviewCard } from "../useReviewStore";
+import { useSettingsStore } from "../useSettingsStore";
 
 jest.mock("../../lib/database", () => ({
   getDueCards: jest.fn(),
@@ -75,6 +76,13 @@ beforeEach(() => {
     cardStartTime: Date.now(),
     sessionStartTime: Date.now(),
     answeredCount: 0,
+    deckExhaustedToday: false,
+  });
+  useSettingsStore.setState({
+    dailyReviewLimit: 20,
+    deckReviewHistory: {},
+    reviewedDates: [],
+    isLoaded: false,
   });
 });
 
@@ -106,7 +114,60 @@ describe("loadQueue", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 20);
+    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 21, []);
+  });
+
+  it("loads only remaining unreviewed cards after daily limit increases", () => {
+    const reviewedCardIds = Array.from({ length: 30 }, (_, i) => `c${i + 1}`);
+    useSettingsStore.setState({
+      dailyReviewLimit: 40,
+      deckReviewHistory: {
+        "deck-1": {
+          date: new Date().toISOString().split("T")[0],
+          reviewedCardIds,
+        },
+      },
+    });
+    mockGetDueCards.mockReturnValue([makeCard({ id: "c31" })] as any);
+
+    useReviewStore.getState().loadQueue("deck-1");
+
+    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 11, reviewedCardIds);
+    expect(useReviewStore.getState().remaining).toHaveLength(1);
+  });
+
+  it("tracks whether the deck was exhausted before the daily limit", () => {
+    mockGetDueCards.mockReturnValue([makeCard({ id: "c1" })] as any);
+
+    useReviewStore.getState().loadQueue("deck-1");
+
+    expect(useReviewStore.getState().deckExhaustedToday).toBe(true);
+  });
+
+  it("does not mark deck exhausted when one extra card exists beyond the limit", () => {
+    mockGetDueCards.mockReturnValue(Array.from({ length: 21 }, (_, i) => makeCard({ id: `c${i + 1}` })) as any);
+
+    useReviewStore.getState().loadQueue("deck-1");
+
+    expect(useReviewStore.getState().remaining).toHaveLength(20);
+    expect(useReviewStore.getState().deckExhaustedToday).toBe(false);
+  });
+
+  it("does not query due cards when daily limit is already reached", () => {
+    useSettingsStore.setState({
+      dailyReviewLimit: 2,
+      deckReviewHistory: {
+        "deck-1": {
+          date: new Date().toISOString().split("T")[0],
+          reviewedCardIds: ["c1", "c2"],
+        },
+      },
+    });
+
+    useReviewStore.getState().loadQueue("deck-1");
+
+    expect(mockGetDueCards).not.toHaveBeenCalled();
+    expect(useReviewStore.getState().isComplete).toBe(true);
   });
 
   it("resets showResult to false", () => {
@@ -338,7 +399,7 @@ describe("resetSession", () => {
 
     useReviewStore.getState().resetSession();
 
-    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 20);
+    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 21, []);
     expect(useReviewStore.getState().remaining).toHaveLength(1);
   });
 
@@ -480,7 +541,7 @@ describe("SRS queue ordering", () => {
 
     useReviewStore.getState().loadQueue("deck-1");
 
-    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 20);
+    expect(mockGetDueCards).toHaveBeenCalledWith("deck-1", 21, []);
   });
 });
 

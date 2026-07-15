@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     DATABASE_URL: str = "sqlite:///./tars.db"
+    SRS_TIMEZONE: str = "America/Chicago"
 
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"

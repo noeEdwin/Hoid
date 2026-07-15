@@ -39,6 +39,8 @@ class SyncVocabStateItem(BaseModel):
     consecutive_failures: int = 0
     consecutive_correct: int = 0
     difficulty_score: float = 0.0
+    last_reviewed_at: Optional[str] = None
+    next_review_at: Optional[str] = None
     updated_at: Optional[str] = None
 
 

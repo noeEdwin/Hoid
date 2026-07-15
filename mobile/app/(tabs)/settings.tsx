@@ -10,6 +10,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const dailyReviewLimit = useSettingsStore((s) => s.dailyReviewLimit);
   const setDailyReviewLimit = useSettingsStore((s) => s.setDailyReviewLimit);
+  const drillMode = useSettingsStore((s) => s.drillMode);
+  const setDrillMode = useSettingsStore((s) => s.setDrillMode);
 
   const [limitText, setLimitText] = useState(String(dailyReviewLimit));
   const [savedLimit, setSavedLimit] = useState(dailyReviewLimit);
@@ -65,6 +67,16 @@ export default function SettingsScreen() {
                 </Pressable>
               </View>
             )}
+
+            <Pressable style={styles.row} onPress={() => setDrillMode(!drillMode)}>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowLabel}>强化练习模式</Text>
+                <Text style={styles.rowHint}>答对两次后才完成卡片</Text>
+              </View>
+              <View style={[styles.toggle, drillMode && styles.toggleOn]}>
+                <View style={[styles.toggleKnob, drillMode && styles.toggleKnobOn]} />
+              </View>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -170,4 +182,19 @@ const styles = StyleSheet.create({
     fontSize: normalize(14),
     fontWeight: "600",
   },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#d6d6dc",
+    padding: 3,
+  },
+  toggleOn: { backgroundColor: "#005bbd" },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "white",
+  },
+  toggleKnobOn: { transform: [{ translateX: 20 }] },
 });

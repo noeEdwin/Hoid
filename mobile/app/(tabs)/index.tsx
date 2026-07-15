@@ -10,6 +10,7 @@ import ToastPopup from "../../components/ToastPopup";
 import { useVocabularyStore } from "../../stores/useVocabularyStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { performSync, type SyncStatus } from "../../lib/sync";
+import { getTomorrowDueCards } from "../../lib/database";
 
 type DashboardSyncState = "idle" | "syncing" | SyncStatus;
 type ToastState = { visible: boolean; status: SyncStatus; message: string };
@@ -31,10 +32,12 @@ export default function DashboardScreen() {
   const isDeckReviewedToday = useSettingsStore((s) => s.isDeckReviewedToday);
   const getStreak = useSettingsStore((s) => s.getStreak);
   const streak = getStreak();
+  const [tomorrowCount, setTomorrowCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       loadLocalData();
+      setTomorrowCount(getTomorrowDueCards().length);
     }, [])
   );
 
@@ -62,6 +65,7 @@ export default function DashboardScreen() {
       const result = await performSync();
       if (result.pullOk || result.status === "success") {
         loadLocalData();
+        setTomorrowCount(getTomorrowDueCards().length);
       }
       setSyncState(result.status);
       setSyncMessage(result.message);
@@ -109,6 +113,13 @@ export default function DashboardScreen() {
         >
           <Text className="text-white text-xl leading-none">+</Text>
         </Pressable>
+      </View>
+
+      <View className="mx-6 mb-4 bg-blue-50 rounded-2xl px-4 py-3">
+        <Text className="text-blue-900 font-semibold">明日预览</Text>
+        <Text className="text-blue-700 mt-1">
+          预计有 {tomorrowCount} 张卡片需要复习。困难卡片会优先出现。
+        </Text>
       </View>
 
       {decks.length > 0 ? (

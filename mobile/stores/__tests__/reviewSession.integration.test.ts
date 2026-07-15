@@ -1,5 +1,6 @@
 import { useReviewStore } from "../useReviewStore";
 import type { ReviewCard } from "../useReviewStore";
+import { useSettingsStore } from "../useSettingsStore";
 
 jest.mock("../../lib/database", () => ({
   getDueCards: jest.fn(),
@@ -39,6 +40,7 @@ function makeCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
     totalReviews: 0,
     totalFailures: 0,
     consecutiveFailures: 0,
+    consecutiveCorrect: 0,
     ...overrides,
   };
 }
@@ -60,6 +62,14 @@ beforeEach(() => {
     cardStartTime: Date.now(),
     sessionStartTime: Date.now(),
     answeredCount: 0,
+    deckExhaustedToday: false,
+  });
+  useSettingsStore.setState({
+    dailyReviewLimit: 20,
+    drillMode: false,
+    deckReviewHistory: {},
+    reviewedDates: [],
+    isLoaded: false,
   });
 });
 

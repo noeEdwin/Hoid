@@ -9,8 +9,11 @@ interface ClozeInputProps {
   answer: string;
   answerPinyin: string;
   imagePath?: string | null;
+  isResultVisible?: boolean;
+  isCorrect?: boolean;
   onSubmit: (isCorrect: boolean) => void;
   onSpeak: () => void;
+  onNext?: () => void;
 }
 
 function hideAnswerPinyin(fullPinyin: string, answerPinyin: string): string {
@@ -33,15 +36,20 @@ export default function ClozeInput({
   answer,
   answerPinyin,
   imagePath,
+  isResultVisible = false,
+  isCorrect = false,
   onSubmit,
   onSpeak,
+  onNext,
 }: ClozeInputProps) {
   const [input, setInput] = useState("");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (!isResultVisible) {
+      inputRef.current?.focus();
+    }
+  }, [isResultVisible]);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
@@ -72,38 +80,56 @@ export default function ClozeInput({
             <Text key={i} style={styles.sentenceText}>
               {part}
               {i < parts.length - 1 && (
-                <Text style={styles.blank}>{input || "___"}</Text>
+                <Text style={styles.blank}>{isResultVisible ? answer : input || "___"}</Text>
               )}
             </Text>
           ))}
         </View>
 
-        <Text style={styles.pinyin}>{hiddenPinyin}</Text>
+        {isResultVisible ? (
+          <>
+            <Text style={[styles.resultLabel, isCorrect ? styles.correctText : styles.incorrectText]}>
+              {isCorrect ? "Correct!" : "Incorrect"}
+            </Text>
+            <View style={styles.answerRow}>
+              <Text style={styles.answer}>{answer}</Text>
+              <Text style={styles.answerPinyin}>{answerPinyin}</Text>
+            </View>
 
-        <Pressable style={styles.speakBtn} onPress={onSpeak}>
-          <Text style={styles.speakIcon}>🔊</Text>
-        </Pressable>
+            <Pressable style={styles.speakBtn} onPress={onSpeak}>
+              <Text style={styles.speakIcon}>🔊</Text>
+            </Pressable>
 
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          onSubmitEditing={handleSubmit}
-          placeholder="Type the missing word in hanzi..."
-          placeholderTextColor="#bdbdbd"
-          returnKeyType="done"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+            <Pressable style={styles.submitBtn} onPress={onNext}>
+              <Text style={styles.submitText}>Next</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Text style={styles.pinyin}>{hiddenPinyin}</Text>
 
-        <Pressable
-          style={[styles.submitBtn, !input.trim() && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={!input.trim()}
-        >
-          <Text style={styles.submitText}>Submit</Text>
-        </Pressable>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={handleSubmit}
+              placeholder="Type the missing word in hanzi..."
+              placeholderTextColor="#bdbdbd"
+              returnKeyType="done"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Pressable
+              style={[styles.submitBtn, !input.trim() && styles.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={!input.trim()}
+            >
+              <Text style={styles.submitText}>Submit</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -166,6 +192,31 @@ const styles = StyleSheet.create({
   },
   speakIcon: {
     fontSize: 22,
+  },
+  resultLabel: {
+    fontSize: normalize(20),
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  correctText: {
+    color: "#2e7d32",
+  },
+  incorrectText: {
+    color: "#c62828",
+  },
+  answerRow: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  answer: {
+    fontSize: normalize(36),
+    fontWeight: "bold",
+    color: "#1b1b1f",
+    marginBottom: 4,
+  },
+  answerPinyin: {
+    fontSize: normalize(16),
+    color: "#757575",
   },
   input: {
     width: "100%",

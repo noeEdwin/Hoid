@@ -24,8 +24,10 @@ interface SavedSession {
   failedCards: ReviewCard[];
   missedCardIds: string[];
   attemptCountEntries: [string, number][];
+  drillCorrectEntries?: [string, number][];
   answeredCount: number;
   sessionStartTime: number;
+  deckExhaustedToday: boolean;
   savedAt: number;
 }
 
@@ -35,8 +37,10 @@ function saveSessionToFile(deckId: string, state: {
   failedCards: ReviewCard[];
   missedCardIds: Set<string>;
   attemptCount: Map<string, number>;
+  drillCorrectCount: Map<string, number>;
   answeredCount: number;
   sessionStartTime: number;
+  deckExhaustedToday: boolean;
 }): void {
   const data: SavedSession = {
     remaining: state.remaining,
@@ -44,8 +48,10 @@ function saveSessionToFile(deckId: string, state: {
     failedCards: state.failedCards,
     missedCardIds: Array.from(state.missedCardIds),
     attemptCountEntries: Array.from(state.attemptCount.entries()),
+    drillCorrectEntries: Array.from(state.drillCorrectCount.entries()),
     answeredCount: state.answeredCount,
     sessionStartTime: state.sessionStartTime,
+    deckExhaustedToday: state.deckExhaustedToday,
     savedAt: Date.now(),
   };
   const file = getSessionFile(deckId);
@@ -105,6 +111,7 @@ interface ReviewState {
   failedCards: ReviewCard[];
   missedCardIds: Set<string>;
   attemptCount: Map<string, number>;
+  drillCorrectCount: Map<string, number>;
   deckId: string | null;
   isComplete: boolean;
   showResult: boolean;
@@ -112,6 +119,7 @@ interface ReviewState {
   cardStartTime: number;
   sessionStartTime: number;
   answeredCount: number;
+  deckExhaustedToday: boolean;
 
   loadQueue: (deckId: string) => void;
   injectCard: (card: ReviewCard) => void;
@@ -174,6 +182,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   failedCards: [],
   missedCardIds: new Set(),
   attemptCount: new Map(),
+  drillCorrectCount: new Map(),
   deckId: null,
   isComplete: false,
   showResult: false,
@@ -181,6 +190,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   cardStartTime: Date.now(),
   sessionStartTime: Date.now(),
   answeredCount: 0,
+  deckExhaustedToday: false,
 
   loadQueue: (deckId: string) => {
     const now = Date.now();
@@ -192,19 +202,43 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
         failedCards: saved.failedCards,
         missedCardIds: new Set(saved.missedCardIds ?? []),
         attemptCount: new Map(saved.attemptCountEntries),
+        drillCorrectCount: new Map(saved.drillCorrectEntries ?? []),
         deckId,
         isComplete: saved.remaining.length === 0,
         showResult: false,
         cardStartTime: now,
         sessionStartTime: saved.sessionStartTime ?? saved.savedAt,
         answeredCount: saved.answeredCount ?? 0,
+        deckExhaustedToday: saved.deckExhaustedToday ?? false,
       });
       return;
     }
 
-    const limit = useSettingsStore.getState().dailyReviewLimit;
-    const items = getDueCards(deckId, limit);
-    const cards = items.map((item) => mapLocalItem(item, deckId));
+    const settings = useSettingsStore.getState();
+    const limit = settings.getRemainingDailyReviews(deckId);
+    const reviewedCardIds = settings.getDeckReviewedCardIdsToday(deckId);
+
+    if (limit <= 0) {
+      set({
+        remaining: [],
+        completed: [],
+        failedCards: [],
+        missedCardIds: new Set(),
+        attemptCount: new Map(),
+        drillCorrectCount: new Map(),
+        deckId,
+        isComplete: true,
+        showResult: false,
+        cardStartTime: now,
+        sessionStartTime: now,
+        answeredCount: 0,
+        deckExhaustedToday: false,
+      });
+      return;
+    }
+
+    const items = getDueCards(deckId, limit + 1, reviewedCardIds);
+    const cards = items.slice(0, limit).map((item) => mapLocalItem(item, deckId));
     const shuffled = weightedShuffle(cards);
 
     set({
@@ -213,12 +247,14 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       failedCards: [],
       missedCardIds: new Set(),
       attemptCount: new Map(),
+      drillCorrectCount: new Map(),
       deckId,
       isComplete: shuffled.length === 0,
       showResult: false,
       cardStartTime: now,
       sessionStartTime: now,
       answeredCount: 0,
+      deckExhaustedToday: items.length <= limit,
     });
   },
 
@@ -229,7 +265,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   },
 
   submitAnswer: (isCorrect: boolean) => {
-    const { remaining, attemptCount, missedCardIds } = get();
+    const { remaining, attemptCount, drillCorrectCount, missedCardIds } = get();
     const card = remaining[0];
     if (!card) return;
 
@@ -246,12 +282,24 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       const newConsecutiveCorrect = isCorrect
         ? (state.consecutiveCorrect ?? 0) + 1
         : 0;
+      const responsePenalty = isCorrect ? Math.max(0, responseTimeMs - 3000) / 50000 : 0;
+      const newDifficulty = Math.min(1, Math.max(0, (state.difficultyScore ?? 0) + (isCorrect ? responsePenalty : 0.15)));
+      const newInterval = isCorrect
+        ? (newConsecutiveCorrect >= 3
+          ? Math.max(1, Math.floor((state.srsInterval ?? 0) * (state.easeFactor ?? 2.5)))
+          : (state.srsInterval ?? 0) < 1 ? 1 : (state.srsInterval ?? 0) < 3 ? 3 : 7)
+        : 1;
+      const reviewedAt = new Date().toISOString();
 
       updateVocabularyState(card.id, {
         totalReviews: (state.totalReviews ?? 0) + 1,
         totalFailures: newTotalFailures,
         consecutiveFailures: newConsecutive,
         consecutiveCorrect: newConsecutiveCorrect,
+        difficultyScore: newDifficulty,
+        srsInterval: newInterval,
+        lastReviewedAt: reviewedAt,
+        nextReviewAt: new Date(Date.now() + newInterval * 86400000).toISOString(),
       });
     }
 
@@ -262,7 +310,12 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       newMissed.add(card.id);
     }
 
-    if (isCorrect) {
+    const drillMode = useSettingsStore.getState().drillMode;
+    const correctStreak = isCorrect ? (drillCorrectCount.get(card.id) ?? 0) + 1 : 0;
+    const newDrillCorrectCount = new Map(drillCorrectCount);
+    newDrillCorrectCount.set(card.id, correctStreak);
+
+    if (isCorrect && (!drillMode || correctStreak >= 2)) {
       const newAttemptCount = new Map(attemptCount);
       newAttemptCount.delete(card.id);
 
@@ -271,6 +324,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
         completed: [...s.completed, card],
         missedCardIds: newMissed,
         attemptCount: newAttemptCount,
+        drillCorrectCount: newDrillCorrectCount,
         showResult: true,
         lastResultCorrect: true,
         answeredCount: s.answeredCount + 1,
@@ -280,12 +334,13 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       const newAttemptCount = new Map(attemptCount);
       newAttemptCount.set(card.id, newAttempts);
 
-      if (newAttempts >= MAX_ATTEMPTS_PER_CARD) {
+      if (!drillMode && newAttempts >= MAX_ATTEMPTS_PER_CARD) {
         set((s) => ({
           remaining: s.remaining.slice(1),
           failedCards: [...s.failedCards, card],
           missedCardIds: newMissed,
           attemptCount: newAttemptCount,
+          drillCorrectCount: newDrillCorrectCount,
           showResult: true,
           lastResultCorrect: false,
           answeredCount: s.answeredCount + 1,
@@ -297,6 +352,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
           remaining: [...rest, updatedCard],
           missedCardIds: newMissed,
           attemptCount: newAttemptCount,
+          drillCorrectCount: newDrillCorrectCount,
           showResult: true,
           lastResultCorrect: false,
           answeredCount: s.answeredCount + 1,
@@ -306,14 +362,14 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   },
 
   dismissResult: () => {
-    const { remaining, deckId, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime } = get();
+    const { remaining, deckId, completed, failedCards, missedCardIds, attemptCount, drillCorrectCount, answeredCount, sessionStartTime, deckExhaustedToday } = get();
     set({
       showResult: false,
       isComplete: remaining.length === 0,
       cardStartTime: Date.now(),
     });
     if (deckId && remaining.length > 0) {
-      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime });
+      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount, drillCorrectCount, answeredCount, sessionStartTime, deckExhaustedToday });
     }
   },
 
@@ -326,9 +382,9 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   },
 
   saveSession: () => {
-    const { deckId, remaining, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime } = get();
+    const { deckId, remaining, completed, failedCards, missedCardIds, attemptCount, drillCorrectCount, answeredCount, sessionStartTime, deckExhaustedToday } = get();
     if (deckId && remaining.length > 0) {
-      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount, answeredCount, sessionStartTime });
+      saveSessionToFile(deckId, { remaining, completed, failedCards, missedCardIds, attemptCount, drillCorrectCount, answeredCount, sessionStartTime, deckExhaustedToday });
     }
   },
 

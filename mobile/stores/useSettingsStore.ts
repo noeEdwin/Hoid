@@ -3,21 +3,32 @@ import { Paths, File, Directory } from "expo-file-system";
 
 interface Settings {
   dailyReviewLimit: number;
-  deckReviewHistory: Record<string, string>;
+  drillMode: boolean;
+  deckReviewHistory: Record<string, DeckReviewHistoryEntry | string>;
   reviewedDates: string[];
+}
+
+interface DeckReviewHistoryEntry {
+  date: string;
+  reviewedCardIds: string[];
+  exhausted?: boolean;
 }
 
 interface SettingsState {
   dailyReviewLimit: number;
-  deckReviewHistory: Record<string, string>;
+  drillMode: boolean;
+  deckReviewHistory: Record<string, DeckReviewHistoryEntry>;
   isLoaded: boolean;
 
   loadSettings: () => Promise<void>;
   setDailyReviewLimit: (limit: number) => void;
-  markDeckReviewed: (deckId: string) => void;
+  setDrillMode: (enabled: boolean) => void;
+  markDeckReviewed: (deckId: string, cardIds: string[], exhausted?: boolean) => void;
   resetDeckReviewed: (deckId: string) => void;
   resetAllDeckReviews: () => void;
   isDeckReviewedToday: (deckId: string) => boolean;
+  getDeckReviewedCardIdsToday: (deckId: string) => string[];
+  getRemainingDailyReviews: (deckId: string) => number;
   reviewedDates: string[];
   getStreak : () => number;
 }
@@ -26,6 +37,23 @@ const SETTINGS_FILE = "settings.json";
 
 function getTodayString(): string {
   return new Date().toISOString().split("T")[0];
+}
+
+function normalizeDeckReviewHistory(
+  history: Settings["deckReviewHistory"] = {}
+): Record<string, DeckReviewHistoryEntry> {
+  return Object.fromEntries(
+    Object.entries(history).map(([deckId, entry]) => {
+      if (typeof entry === "string") {
+        return [deckId, { date: entry, reviewedCardIds: [] }];
+      }
+      return [deckId, {
+        date: entry.date,
+        reviewedCardIds: Array.isArray(entry.reviewedCardIds) ? entry.reviewedCardIds : [],
+        exhausted: entry.exhausted ?? false,
+      }];
+    })
+  );
 }
 
 function getSettingsFile(): File {
@@ -54,6 +82,7 @@ function writeSettingsFile(settings: Settings): void {
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   dailyReviewLimit: 20,
+  drillMode: true,
   deckReviewHistory: {},
   reviewedDates: [],
   isLoaded: false,
@@ -63,7 +92,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     if (settings) {
       set({
         dailyReviewLimit: settings.dailyReviewLimit ?? 20,
-        deckReviewHistory: settings.deckReviewHistory ?? {},
+        drillMode: settings.drillMode ?? true,
+        deckReviewHistory: normalizeDeckReviewHistory(settings.deckReviewHistory),
         reviewedDates: settings.reviewedDates ?? [],
         isLoaded: true,
       });
@@ -74,29 +104,30 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setDailyReviewLimit: (limit: number) => {
     const clamped = Math.max(5, Math.min(100, limit));
-    const { dailyReviewLimit: oldLimit, deckReviewHistory, reviewedDates } = get();
-    const today = getTodayString();
-
-    let updatedHistory = deckReviewHistory;
-    if (clamped > oldLimit) {
-      updatedHistory = Object.fromEntries(
-        Object.entries(deckReviewHistory).filter(([_, date]) => date !== today)
-      );
-    }
-
-    set({ dailyReviewLimit: clamped, deckReviewHistory: updatedHistory });
-    writeSettingsFile({ dailyReviewLimit: clamped, deckReviewHistory: updatedHistory, reviewedDates });
+    const { deckReviewHistory, reviewedDates } = get();
+    set({ dailyReviewLimit: clamped });
+    writeSettingsFile({ dailyReviewLimit: clamped, drillMode: get().drillMode, deckReviewHistory, reviewedDates });
   },
 
-  markDeckReviewed: (deckId: string) => {
+  setDrillMode: (enabled: boolean) => {
+    const { dailyReviewLimit, deckReviewHistory, reviewedDates } = get();
+    set({ drillMode: enabled });
+    writeSettingsFile({ dailyReviewLimit, drillMode: enabled, deckReviewHistory, reviewedDates });
+  },
+
+  markDeckReviewed: (deckId: string, cardIds: string[], exhausted: boolean = false) => {
     const today = getTodayString();
     const { dailyReviewLimit, deckReviewHistory, reviewedDates } = get();
-    const updatedHistory = { ...deckReviewHistory, [deckId]: today };
+    const existing = deckReviewHistory[deckId];
+    const existingCardIds = existing?.date === today ? existing.reviewedCardIds : [];
+    const wasExhausted = existing?.date === today ? existing.exhausted ?? false : false;
+    const reviewedCardIds = Array.from(new Set([...existingCardIds, ...cardIds]));
+    const updatedHistory = { ...deckReviewHistory, [deckId]: { date: today, reviewedCardIds, exhausted: wasExhausted || exhausted } };
     const updatedDates = reviewedDates.includes(today)
       ? reviewedDates
       : [...reviewedDates, today];
     set({ deckReviewHistory: updatedHistory, reviewedDates: updatedDates });
-    writeSettingsFile({ dailyReviewLimit, deckReviewHistory: updatedHistory, reviewedDates: updatedDates });
+    writeSettingsFile({ dailyReviewLimit, drillMode: get().drillMode, deckReviewHistory: updatedHistory, reviewedDates: updatedDates });
   },
 
   resetDeckReviewed: (deckId: string) => {
@@ -104,20 +135,32 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const updated = { ...deckReviewHistory };
     delete updated[deckId];
     set({ deckReviewHistory: updated });
-    writeSettingsFile({ dailyReviewLimit, deckReviewHistory: updated, reviewedDates });
+    writeSettingsFile({ dailyReviewLimit, drillMode: get().drillMode, deckReviewHistory: updated, reviewedDates });
   },
 
   resetAllDeckReviews: () => {
     const { dailyReviewLimit } = get();
     set({ deckReviewHistory: {}, reviewedDates: [] });
-    writeSettingsFile({ dailyReviewLimit, deckReviewHistory: {}, reviewedDates: [] });
+    writeSettingsFile({ dailyReviewLimit, drillMode: get().drillMode, deckReviewHistory: {}, reviewedDates: [] });
   },
 
   isDeckReviewedToday: (deckId: string) => {
     const { deckReviewHistory } = get();
     const lastReviewed = deckReviewHistory[deckId];
     if (!lastReviewed) return false;
-    return lastReviewed === getTodayString();
+    return lastReviewed.date === getTodayString()
+      && (lastReviewed.reviewedCardIds.length >= get().dailyReviewLimit || lastReviewed.exhausted === true);
+  },
+
+  getDeckReviewedCardIdsToday: (deckId: string) => {
+    const lastReviewed = get().deckReviewHistory[deckId];
+    if (!lastReviewed || lastReviewed.date !== getTodayString()) return [];
+    return lastReviewed.reviewedCardIds;
+  },
+
+  getRemainingDailyReviews: (deckId: string) => {
+    const reviewedCount = get().getDeckReviewedCardIdsToday(deckId).length;
+    return Math.max(0, get().dailyReviewLimit - reviewedCount);
   },
 
   getStreak: () => {

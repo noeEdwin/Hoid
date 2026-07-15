@@ -6,8 +6,7 @@ import { createAudioPlayer } from "expo-audio";
 import * as Speech from "expo-speech";
 import ProgressBar from "../components/ProgressBar";
 import ClozeInput from "../components/ClozeInput";
-import ReviewResult from "../components/ReviewResult";
-import { useReviewStore } from "../stores/useReviewStore";
+import { useReviewStore, type ReviewCard } from "../stores/useReviewStore";
 import { useSettingsStore } from "../stores/useSettingsStore";
 
 function formatTime(seconds: number): string {
@@ -38,7 +37,9 @@ export default function ReviewScreen() {
     isComplete,
     showResult,
     lastResultCorrect,
+    completed,
     failedCards,
+    deckExhaustedToday,
     loadQueue,
     submitAnswer,
     dismissResult,
@@ -53,7 +54,8 @@ export default function ReviewScreen() {
   const card = getCurrentCard();
   const progress = getProgress();
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
-  const answeredRef = useRef<{ answer: string; answerPinyin: string } | null>(null);
+  const [resultCard, setResultCard] = useState<ReviewCard | null>(null);
+  const visibleCard = showResult ? resultCard : card;
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -87,9 +89,9 @@ export default function ReviewScreen() {
   useEffect(() => {
     if (isComplete && deckId) {
       clearSession(deckId);
-      markDeckReviewed(deckId);
+      markDeckReviewed(deckId, [...completed, ...failedCards].map((reviewedCard) => reviewedCard.id), deckExhaustedToday);
     }
-  }, [isComplete, deckId]);
+  }, [isComplete, deckId, completed, failedCards, deckExhaustedToday]);
 
   useEffect(() => {
     if (deckId && isDeckReviewedToday(deckId) && !isComplete) {
@@ -111,7 +113,8 @@ export default function ReviewScreen() {
         playerRef.current = player;
         player.play();
         return;
-      } catch {
+      } catch (error) {
+        console.warn("Stored audio playback failed, falling back to speech:", error);
         // fall through to speech
       }
     }
@@ -122,20 +125,16 @@ export default function ReviewScreen() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!card || showResult) return;
-    playAudio(card.audioPath, card.sentence, card.answer);
-  }, [card?.id, showResult, playAudio]);
-
   const handleSubmit = (isCorrect: boolean) => {
-    if (card) {
-      answeredRef.current = { answer: card.answer, answerPinyin: card.answerPinyin };
-    }
+    if (!card) return;
+
+    setResultCard(card);
     submitAnswer(isCorrect);
+    playAudio(card.audioPath, card.sentence, card.answer);
   };
 
-  const handleDismiss = () => {
-    answeredRef.current = null;
+  const handleNext = () => {
+    setResultCard(null);
     dismissResult();
   };
 
@@ -249,7 +248,7 @@ export default function ReviewScreen() {
     );
   }
 
-  if (!card && !showResult) {
+  if (!visibleCard) {
     return (
       <GestureHandlerRootView className="flex-1 bg-surface">
         <View className="flex-1 items-center justify-center">
@@ -275,34 +274,21 @@ export default function ReviewScreen() {
         <ProgressBar current={progress.current + 1} total={progress.total} />
 
         <View className={`flex-1 items-center ${keyboardVisible ? "pt-8" : "justify-center"}`}>
-          {!showResult && card ? (
+          {visibleCard ? (
             <ClozeInput
-              sentence={card.sentence}
-              sentencePinyin={card.sentencePinyin}
-              answer={card.answer}
-              answerPinyin={card.answerPinyin}
-              imagePath={card.imagePath}
+              sentence={visibleCard.sentence}
+              sentencePinyin={visibleCard.sentencePinyin}
+              answer={visibleCard.answer}
+              answerPinyin={visibleCard.answerPinyin}
+              imagePath={visibleCard.imagePath}
+              isResultVisible={showResult}
+              isCorrect={lastResultCorrect}
               onSubmit={handleSubmit}
-              onSpeak={() => {
-                if (playerRef.current) {
-                  try {
-                    playerRef.current.seekTo(0);
-                    playerRef.current.play();
-                  } catch {
-                    playAudio(card.audioPath, card.sentence, card.answer);
-                  }
-                } else {
-                  playAudio(card.audioPath, card.sentence, card.answer);
-                }
-              }}
+              onSpeak={() => playAudio(visibleCard.audioPath, visibleCard.sentence, visibleCard.answer)}
+              onNext={handleNext}
             />
           ) : (
-            <ReviewResult
-              isCorrect={lastResultCorrect}
-              answer={answeredRef.current?.answer ?? ""}
-              answerPinyin={answeredRef.current?.answerPinyin ?? ""}
-              onDismiss={handleDismiss}
-            />
+            null
           )}
         </View>
       </KeyboardAvoidingView>

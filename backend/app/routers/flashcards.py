@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
@@ -265,12 +265,15 @@ def get_review_queue(
     )
 
     queue = []
+    now = datetime.utcnow()
     for flashcard in flashcards:
         state = session.exec(
             select(UserVocabularyState).where(
                 UserVocabularyState.flashcard_id == flashcard.id
             )
         ).first()
+        if state and state.next_review_at and state.next_review_at > now:
+            continue
 
         queue.append(
             ReviewQueueItem(
@@ -287,6 +290,8 @@ def get_review_queue(
                 total_failures=state.total_failures if state else 0,
                 consecutive_failures=state.consecutive_failures if state else 0,
                 consecutive_correct=state.consecutive_correct if state else 0,
+                last_reviewed_at=state.last_reviewed_at.isoformat() if state and state.last_reviewed_at else None,
+                next_review_at=state.next_review_at.isoformat() if state and state.next_review_at else None,
             )
         )
 
@@ -339,6 +344,8 @@ def submit_review(
     else:
         state.consecutive_failures = 0
     state.updated_at = datetime.utcnow()
+    state.last_reviewed_at = state.updated_at
+    state.next_review_at = state.updated_at + timedelta(days=state.srs_interval)
 
     session.add(state)
     session.commit()

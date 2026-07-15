@@ -97,7 +97,9 @@ export async function performSync(): Promise<PerformSyncResult> {
   if (pushOk && pullOk) {
     return {
       status: "success",
-      message: processedPendingReviewIds.length > 0 ? "同步完成，复习记录已更新" : "同步完成",
+      message: processedPendingReviewIds.length > 0
+        ? `同步完成，已处理 ${processedPendingReviewIds.length} 条复习记录`
+        : "同步完成",
       pushOk,
       pullOk,
       processedPendingReviewIds,
@@ -172,6 +174,8 @@ export async function pushPendingReviews(): Promise<{
         consecutive_failures: s!.consecutiveFailures ?? 0,
         consecutive_correct: (s as any).consecutiveCorrect ?? 0,
         difficulty_score: s!.difficultyScore ?? 0,
+        last_reviewed_at: s!.lastReviewedAt ?? undefined,
+        next_review_at: s!.nextReviewAt ?? undefined,
         updated_at: s!.updatedAt ?? undefined,
       })),
     pending_reviews: pending.map((r) => ({
@@ -270,8 +274,10 @@ export async function pullUpdates(): Promise<void> {
           totalFailures: vs.total_failures,
           consecutiveFailures: vs.consecutive_failures,
           consecutiveCorrect: vs.consecutive_correct,
-          difficultyScore: vs.difficulty_score,
-          updatedAt: vs.updated_at ?? existing.updatedAt,
+           difficultyScore: vs.difficulty_score,
+           lastReviewedAt: vs.last_reviewed_at,
+           nextReviewAt: vs.next_review_at,
+           updatedAt: vs.updated_at ?? existing.updatedAt,
         })
         .where(eq(userVocabularyState.flashcardId, vs.flashcard_id))
         .run();
@@ -286,8 +292,10 @@ export async function pullUpdates(): Promise<void> {
           totalFailures: vs.total_failures,
           consecutiveFailures: vs.consecutive_failures,
           consecutiveCorrect: vs.consecutive_correct,
-          difficultyScore: vs.difficulty_score,
-          updatedAt: vs.updated_at,
+           difficultyScore: vs.difficulty_score,
+           lastReviewedAt: vs.last_reviewed_at,
+           nextReviewAt: vs.next_review_at,
+           updatedAt: vs.updated_at,
         })
         .run();
     }

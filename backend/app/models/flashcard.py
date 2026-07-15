@@ -57,6 +57,8 @@ class UserVocabularyState(SQLModel, table=True):
     consecutive_failures: int = Field(default=0)
     consecutive_correct: int = Field(default=0)
     difficulty_score: float = Field(default=0.0, index=True)
+    last_reviewed_at: Optional[datetime] = None
+    next_review_at: Optional[datetime] = None
     updated_at: datetime = Field(default_factory=_utcnow, sa_column_kwargs={"onupdate": _utcnow})
 
     flashcard: Optional[Flashcard] = Relationship(back_populates="vocabulary_state")

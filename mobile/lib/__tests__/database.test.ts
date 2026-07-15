@@ -33,9 +33,11 @@ jest.mock("drizzle-orm", () => ({
   eq: jest.fn((a: any, b: any) => ({ type: "eq", a, b })),
   desc: jest.fn((a: any) => ({ type: "desc", a })),
   gt: jest.fn((a: any, b: any) => ({ type: "gt", a, b })),
+  and: jest.fn((...args: any[]) => ({ type: "and", args })),
   or: jest.fn((...args: any[]) => ({ type: "or", args })),
   count: jest.fn(() => ({ type: "count" })),
   inArray: jest.fn((a: any, b: any) => ({ type: "inArray", a, b })),
+  notInArray: jest.fn((a: any, b: any) => ({ type: "notInArray", a, b })),
 }));
 
 import { getDb } from "../database";
@@ -120,6 +122,18 @@ describe("getDueCards", () => {
     getDueCards("deck-1");
 
     expect(chain.innerJoin).toHaveBeenCalled();
+  });
+
+  it("excludes cards already reviewed today", () => {
+    const chain = setupMockChain([]);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getDueCards } = require("../database");
+    getDueCards("deck-1", 10, ["c1", "c2"]);
+
+    expect(chain.where).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "and" })
+    );
   });
 });
 

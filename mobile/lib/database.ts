@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
-import { eq, desc, gt, or, count, inArray } from "drizzle-orm";
+import { and, eq, desc, gt, or, count, inArray, notInArray } from "drizzle-orm";
 import * as crypto from "expo-crypto";
 import { File, Paths } from "expo-file-system";
 import {
@@ -11,7 +11,7 @@ import {
 } from "./schema";
 
 const DB_NAME = "tars.db";
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 
 let _sqlite: ReturnType<typeof SQLite.openDatabaseSync> | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -153,7 +153,7 @@ function dedupeDeckFlashcards(deckId: string): number {
   let removed = 0;
   for (const group of groups.values()) {
     if (group.length < 2) continue;
-    const canonical = chooseCanonicalFlashcard(group);
+    const canonical = chooseCanonicalFlashcard(group)!;
     for (const duplicate of group) {
       if (duplicate.id === canonical.id) continue;
       mergeFlashcardMetadata(canonical, duplicate);
@@ -190,7 +190,11 @@ function ensureInitialized(): void {
   );
   const currentVersion = versionRow?.user_version ?? 0;
 
-  if (currentVersion < CURRENT_SCHEMA_VERSION) {
+  if (currentVersion === 4) {
+    sqlite.execSync("ALTER TABLE user_vocabulary_state ADD COLUMN last_reviewed_at TEXT");
+    sqlite.execSync("ALTER TABLE user_vocabulary_state ADD COLUMN next_review_at TEXT");
+    sqlite.execSync(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION}`);
+  } else if (currentVersion < 4) {
     sqlite.execSync("DROP TABLE IF EXISTS pending_review");
     sqlite.execSync("DROP TABLE IF EXISTS user_vocabulary_state");
     sqlite.execSync("DROP TABLE IF EXISTS flashcard");
@@ -236,6 +240,8 @@ function ensureInitialized(): void {
         consecutive_failures INTEGER DEFAULT 0,
         consecutive_correct INTEGER DEFAULT 0,
         difficulty_score REAL DEFAULT 0.0,
+        last_reviewed_at TEXT,
+        next_review_at TEXT,
         updated_at TEXT,
         FOREIGN KEY (flashcard_id) REFERENCES flashcard(id)
       );
@@ -438,6 +444,8 @@ export function updateVocabularyState(
     consecutiveFailures: number;
     consecutiveCorrect: number;
     difficultyScore: number;
+    lastReviewedAt: string;
+    nextReviewAt: string;
   }>
 ) {
   const db = getDb();
@@ -452,8 +460,18 @@ export function updateVocabularyState(
   return getVocabularyState(flashcardId);
 }
 
-export function getDueCards(deckId: string, limit: number = 20) {
+export function getDueCards(
+  deckId: string,
+  limit: number = 20,
+  excludeCardIds: string[] = [],
+  dueBefore: string = new Date().toISOString()
+) {
   const db = getDb();
+  const conditions = excludeCardIds.length > 0
+    ? and(eq(flashcard.deckId, deckId), notInArray(flashcard.id, excludeCardIds))
+    : eq(flashcard.deckId, deckId);
+
+  const dueBeforeMs = new Date(dueBefore).getTime();
   return db
     .select({
       id: flashcard.id,
@@ -470,6 +488,8 @@ export function getDueCards(deckId: string, limit: number = 20) {
       srsInterval: userVocabularyState.srsInterval,
       easeFactor: userVocabularyState.easeFactor,
       difficultyScore: userVocabularyState.difficultyScore,
+      lastReviewedAt: userVocabularyState.lastReviewedAt,
+      nextReviewAt: userVocabularyState.nextReviewAt,
       totalReviews: userVocabularyState.totalReviews,
       totalFailures: userVocabularyState.totalFailures,
       consecutiveFailures: userVocabularyState.consecutiveFailures,
@@ -480,10 +500,12 @@ export function getDueCards(deckId: string, limit: number = 20) {
       userVocabularyState,
       eq(flashcard.id, userVocabularyState.flashcardId)
     )
-    .where(eq(flashcard.deckId, deckId))
+    .where(conditions)
     .orderBy(desc(userVocabularyState.difficultyScore))
     .limit(limit)
-    .all();
+    .all()
+    .filter((card) => !card.nextReviewAt || new Date(card.nextReviewAt).getTime() <= dueBeforeMs)
+    .slice(0, limit);
 }
 
 export function addPendingReview(
@@ -570,4 +592,14 @@ export function getFailingTokens() {
     .orderBy(desc(userVocabularyState.difficultyScore))
     .limit(20)
     .all();
+}
+
+export function getTomorrowDueCards(deckId?: string) {
+  const now = Date.now();
+  const tomorrowEnd = new Date(now);
+  tomorrowEnd.setHours(23, 59, 59, 999);
+  const dueBefore = tomorrowEnd.toISOString();
+  return deckId
+    ? getDueCards(deckId, 1000, [], dueBefore)
+    : getAllDecks().flatMap((d) => getDueCards(d.id, 1000, [], dueBefore));
 }

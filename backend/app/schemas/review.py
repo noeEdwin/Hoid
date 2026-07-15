@@ -38,6 +38,8 @@ class ReviewQueueItem(BaseModel):
     total_failures: int
     consecutive_failures: int
     consecutive_correct: int = 0
+    last_reviewed_at: str | None = None
+    next_review_at: str | None = None
 
 
 class ReviewQueueResponse(BaseModel):

@@ -23,6 +23,7 @@ describe("ClozeInput", () => {
     answerPinyin: "ài",
     onSubmit: jest.fn(),
     onSpeak: jest.fn(),
+    onNext: jest.fn(),
   };
 
   beforeEach(() => {
@@ -86,11 +87,10 @@ describe("ClozeInput", () => {
     expect(defaultProps.onSubmit).not.toHaveBeenCalled();
   });
 
-  it("calls onSpeak when speaker button pressed", () => {
-    const { getByText } = render(<ClozeInput {...defaultProps} />);
-    fireEvent.press(getByText("🔊"));
+  it("does not show speaker button before submit", () => {
+    const { queryByText } = render(<ClozeInput {...defaultProps} />);
 
-    expect(defaultProps.onSpeak).toHaveBeenCalled();
+    expect(queryByText("🔊")).toBeNull();
   });
 
   it("clears input after submission", () => {
@@ -128,5 +128,58 @@ describe("ClozeInput", () => {
     fireEvent.changeText(input, "爱");
     fireEvent.press(getByText("Submit"));
     expect(defaultProps.onSubmit).toHaveBeenCalled();
+  });
+
+  it("shows Correct! in result mode", () => {
+    const { getByText } = render(
+      <ClozeInput {...defaultProps} isResultVisible isCorrect />
+    );
+
+    expect(getByText("Correct!")).toBeTruthy();
+  });
+
+  it("shows Incorrect in result mode", () => {
+    const { getByText } = render(
+      <ClozeInput {...defaultProps} isResultVisible isCorrect={false} />
+    );
+
+    expect(getByText("Incorrect")).toBeTruthy();
+  });
+
+  it("shows answer and pinyin in result mode", () => {
+    const { getAllByText, getByText } = render(
+      <ClozeInput {...defaultProps} isResultVisible isCorrect />
+    );
+
+    expect(getAllByText("爱").length).toBeGreaterThan(0);
+    expect(getByText("ài")).toBeTruthy();
+  });
+
+  it("calls onSpeak when result speaker button pressed", () => {
+    const { getByText } = render(
+      <ClozeInput {...defaultProps} isResultVisible isCorrect />
+    );
+
+    fireEvent.press(getByText("🔊"));
+
+    expect(defaultProps.onSpeak).toHaveBeenCalled();
+  });
+
+  it("calls onNext when Next is pressed in result mode", () => {
+    const { getByText } = render(
+      <ClozeInput {...defaultProps} isResultVisible isCorrect />
+    );
+
+    fireEvent.press(getByText("Next"));
+
+    expect(defaultProps.onNext).toHaveBeenCalled();
+  });
+
+  it("hides text input in result mode", () => {
+    const { queryByPlaceholderText } = render(
+      <ClozeInput {...defaultProps} isResultVisible isCorrect />
+    );
+
+    expect(queryByPlaceholderText("Type the missing word in hanzi...")).toBeNull();
   });
 });
