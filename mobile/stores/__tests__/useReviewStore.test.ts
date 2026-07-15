@@ -80,6 +80,7 @@ beforeEach(() => {
   });
   useSettingsStore.setState({
     dailyReviewLimit: 20,
+    drillMode: false,
     deckReviewHistory: {},
     reviewedDates: [],
     isLoaded: false,
@@ -300,6 +301,45 @@ describe("submitAnswer", () => {
 
     expect(useReviewStore.getState().showResult).toBe(true);
     expect(useReviewStore.getState().lastResultCorrect).toBe(false);
+  });
+
+  it("retries a missed card after two other cards", () => {
+    const cards = [
+      makeCard({ id: "c1" }),
+      makeCard({ id: "c2" }),
+      makeCard({ id: "c3" }),
+      makeCard({ id: "c4" }),
+    ];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
+
+    useReviewStore.getState().submitAnswer(false);
+
+    expect(useReviewStore.getState().remaining.map((card) => card.id)).toEqual([
+      "c2",
+      "c3",
+      "c1",
+      "c4",
+    ]);
+  });
+
+  it("moves a card to failedCards only after four misses", () => {
+    const cards = [makeCard({ id: "c1" })];
+    mockGetDueCards.mockReturnValue(cards as any);
+    useReviewStore.getState().loadQueue("deck-1");
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      useReviewStore.getState().submitAnswer(false);
+      expect(useReviewStore.getState().failedCards).toHaveLength(0);
+      expect(useReviewStore.getState().remaining).toHaveLength(1);
+    }
+
+    useReviewStore.getState().submitAnswer(false);
+
+    expect(useReviewStore.getState().failedCards).toHaveLength(1);
+    expect(useReviewStore.getState().remaining).toHaveLength(0);
   });
 
   it("when getVocabularyState returns null: skips vocab update but still writes pending review", () => {

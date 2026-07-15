@@ -11,7 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_API_URL": "http://192.168.3.11:8000"
       }
     },
     "preview": {
@@ -20,7 +21,8 @@
         "buildType": "apk"
       },
       "env": {
-        "APP_VARIANT": "preview"
+        "APP_VARIANT": "preview",
+        "EXPO_PUBLIC_API_URL": "http://192.168.3.11:8000"
       }
     },
     "production": {

@@ -87,11 +87,18 @@ export default function ReviewScreen() {
   }, [navigation, deckId]);
 
   useEffect(() => {
-    if (isComplete && deckId) {
-      clearSession(deckId);
-      markDeckReviewed(deckId, [...completed, ...failedCards].map((reviewedCard) => reviewedCard.id), deckExhaustedToday);
-    }
-  }, [isComplete, deckId, completed, failedCards, deckExhaustedToday]);
+    if (!deckId) return;
+
+    const state = useReviewStore.getState();
+    if (!state.isComplete || state.deckId !== deckId || state.answeredCount === 0) return;
+
+    clearSession(deckId);
+    markDeckReviewed(
+      deckId,
+      [...state.completed, ...state.failedCards].map((reviewedCard) => reviewedCard.id),
+      state.deckExhaustedToday,
+    );
+  }, [isComplete, deckId, clearSession, markDeckReviewed]);
 
   useEffect(() => {
     if (deckId && isDeckReviewedToday(deckId) && !isComplete) {

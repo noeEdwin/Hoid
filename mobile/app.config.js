@@ -63,8 +63,10 @@ export default {
       "expo-sqlite",
       "expo-audio",
       "expo-status-bar",
+      "./plugins/withLocalNetworkSecurity",
     ],
     extra: {
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.3.11:8000",
       router: {
         scheme: getScheme(),
       },

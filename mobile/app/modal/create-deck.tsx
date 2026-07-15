@@ -13,11 +13,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { createDeck, getDeckById } from "../../lib/database";
 import { useVocabularyStore } from "../../stores/useVocabularyStore";
 import { normalize, Dimens } from "../../lib/dimens";
+import { useNavigateOnce } from "../../lib/useNavigateOnce";
 
 export default function CreateDeckModal() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId?: string }>();
   const loadLocalData = useVocabularyStore((s) => s.loadLocalData);
+  const navigateOnce = useNavigateOnce();
 
   const isEditing = !!deckId;
 
@@ -45,7 +47,7 @@ export default function CreateDeckModal() {
       createDeck(trimmed, description.trim() || undefined);
     }
     loadLocalData();
-    router.back();
+    navigateOnce(() => router.back());
   };
 
   return (

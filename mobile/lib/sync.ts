@@ -12,6 +12,7 @@ import {
   clearPendingReviews,
   getDb,
   dedupeLocalFlashcards,
+  dedupeLocalDecks,
 } from "./database";
 import { deck, flashcard, userVocabularyState } from "./schema";
 import { eq } from "drizzle-orm";
@@ -50,7 +51,7 @@ function getSyncFailureMessage(
     if (apiError.code === "network") {
       return {
         errorCode: apiError.code,
-        message: `无法连接服务器：${getApiBase()}`,
+        message: `${stage === "push" ? "上传" : "下载"}网络错误：无法连接服务器。${(error as { message?: string }).message ?? "未知网络错误"}（${getApiBase()}）`,
       };
     }
 
@@ -59,19 +60,30 @@ function getSyncFailureMessage(
         errorCode: apiError.code,
         message:
           stage === "push"
-            ? `上传失败（HTTP ${apiError.status ?? "?"}）`
-            : `下载失败（HTTP ${apiError.status ?? "?"}）`,
+            ? `上传失败（HTTP ${apiError.status ?? "?"}）：${(error as { message?: string }).message ?? "服务器错误"}`
+            : `下载失败（HTTP ${apiError.status ?? "?"}）：${(error as { message?: string }).message ?? "服务器错误"}`,
       };
     }
   }
 
   return {
     errorCode: "unknown",
-    message: stage === "push" ? "上传失败" : "下载失败",
+    message: `${stage === "push" ? "上传" : "下载"}失败：${error instanceof Error ? error.message : String(error)}`,
   };
 }
 
-export async function performSync(): Promise<PerformSyncResult> {
+let activeSync: Promise<PerformSyncResult> | null = null;
+
+export function performSync(): Promise<PerformSyncResult> {
+  if (activeSync) return activeSync;
+
+  activeSync = performSyncInternal().finally(() => {
+    activeSync = null;
+  });
+  return activeSync;
+}
+
+async function performSyncInternal(): Promise<PerformSyncResult> {
   let pushOk = false;
   let pullOk = false;
   let processedPendingReviewIds: string[] = [];
@@ -134,7 +146,7 @@ export async function performSync(): Promise<PerformSyncResult> {
 export async function pushPendingReviews(): Promise<{
   processedPendingReviewIds: string[];
 }> {
-  dedupeLocalFlashcards();
+  dedupeLocalDecks?.();
   const allDecks = getAllDecks();
   const allFlashcards = allDecks.flatMap((d) => getFlashcardsByDeck(d.id));
   const pending = getPendingReviews();
@@ -301,5 +313,5 @@ export async function pullUpdates(): Promise<void> {
     }
   }
 
-  dedupeLocalFlashcards();
+  dedupeLocalDecks?.();
 }

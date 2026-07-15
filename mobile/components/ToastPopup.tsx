@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 type ToastStatus = "success" | "partial" | "failure";
 
@@ -7,6 +7,7 @@ interface ToastPopupProps {
   visible: boolean;
   status: ToastStatus;
   message: string;
+  onPress?: () => void;
 }
 
 const palette: Record<ToastStatus, { bg: string; border: string; text: string }> = {
@@ -19,6 +20,7 @@ export default function ToastPopup({
   visible,
   status,
   message,
+  onPress,
 }: ToastPopupProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(18)).current;
@@ -45,27 +47,29 @@ export default function ToastPopup({
   const colors = palette[status];
 
   return (
-    <View pointerEvents="none" style={styles.container}>
-      <Animated.View
-        testID="sync-toast"
-        style={[
-          styles.toast,
-          {
-            backgroundColor: colors.bg,
-            borderColor: colors.border,
-            opacity,
-            transform: [{ translateY }],
-          },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          numberOfLines={2}
-          style={[styles.message, { color: colors.text }]}
+    <View pointerEvents={onPress ? "auto" : "none"} style={styles.container}>
+      <Pressable testID="sync-toast-button" onPress={onPress} disabled={!onPress}>
+        <Animated.View
+          testID="sync-toast"
+          style={[
+            styles.toast,
+            {
+              backgroundColor: colors.bg,
+              borderColor: colors.border,
+              opacity,
+              transform: [{ translateY }],
+            },
+          ]}
         >
-          {message}
-        </Text>
-      </Animated.View>
+          <Text
+            allowFontScaling={false}
+            numberOfLines={2}
+            style={[styles.message, { color: colors.text }]}
+          >
+            {message}
+          </Text>
+        </Animated.View>
+      </Pressable>
     </View>
   );
 }

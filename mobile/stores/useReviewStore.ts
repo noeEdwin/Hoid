@@ -3,7 +3,8 @@ import { Paths, File, Directory } from "expo-file-system";
 import { getDueCards, addPendingReview, getVocabularyState, updateVocabularyState } from "../lib/database";
 import { useSettingsStore } from "./useSettingsStore";
 
-const MAX_ATTEMPTS_PER_CARD = 3;
+const MAX_ATTEMPTS_PER_CARD = 4;
+const RETRY_GAP = 2;
 const SESSION_DIR_NAME = "review-sessions";
 
 function getSessionDir(): Directory {
@@ -334,7 +335,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       const newAttemptCount = new Map(attemptCount);
       newAttemptCount.set(card.id, newAttempts);
 
-      if (!drillMode && newAttempts >= MAX_ATTEMPTS_PER_CARD) {
+      if (newAttempts >= MAX_ATTEMPTS_PER_CARD) {
         set((s) => ({
           remaining: s.remaining.slice(1),
           failedCards: [...s.failedCards, card],
@@ -348,8 +349,9 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       } else {
         const rest = remaining.slice(1);
         const updatedCard = { ...card };
+        const retryIndex = Math.min(RETRY_GAP, rest.length);
         set((s) => ({
-          remaining: [...rest, updatedCard],
+          remaining: [...rest.slice(0, retryIndex), updatedCard, ...rest.slice(retryIndex)],
           missedCardIds: newMissed,
           attemptCount: newAttemptCount,
           drillCorrectCount: newDrillCorrectCount,

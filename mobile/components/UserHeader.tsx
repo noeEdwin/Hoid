@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { View, Text, Pressable, Animated, Easing } from "react-native";
 import { useRouter } from "expo-router";
 import { normalize } from "../lib/dimens";
+import { useNavigateOnce } from "../lib/useNavigateOnce";
 
 type SyncBannerStatus = "idle" | "syncing" | "success" | "partial" | "failure";
 
@@ -131,6 +132,7 @@ export default function UserHeader({
   syncMessage = "",
 }: UserHeaderProps) {
   const router = useRouter();
+  const navigateOnce = useNavigateOnce();
 
   return (
     <View>
@@ -171,7 +173,7 @@ export default function UserHeader({
             </Text>
           </View>
           <Pressable
-            onPress={() => router.push("/(tabs)/settings")}
+            onPress={() => navigateOnce(() => router.push("/(tabs)/settings"))}
             className="bg-surfaceContainerHigh w-9 h-9 rounded-full items-center justify-center"
           >
             <Text style={{ fontSize: normalize(16) }}>⚙️</Text>

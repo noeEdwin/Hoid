@@ -172,6 +172,56 @@ function dedupeDeckFlashcards(deckId: string): number {
   return removed;
 }
 
+function dedupeDecksByIdentity(): number {
+  const db = getDb();
+  const groups = new Map<string, ReturnType<typeof getAllDecks>>();
+
+  for (const currentDeck of getAllDecks()) {
+    const key = JSON.stringify([
+      normalizeText(currentDeck.name, true),
+      normalizeText(currentDeck.description, true),
+    ]);
+    const existing = groups.get(key) ?? [];
+    existing.push(currentDeck);
+    groups.set(key, existing);
+  }
+
+  let removed = 0;
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const canonical = [...group].sort((a, b) =>
+      (a.createdAt ?? a.id).localeCompare(b.createdAt ?? b.id)
+    )[0];
+
+    for (const duplicateDeck of group) {
+      if (duplicateDeck.id === canonical.id) continue;
+      for (const duplicate of getFlashcardsByDeck(duplicateDeck.id)) {
+        const matching = getFlashcardsByDeck(canonical.id).find(
+          (card) => flashcardIdentityKey(card) === flashcardIdentityKey(duplicate)
+        );
+        if (matching) {
+          mergeFlashcardMetadata(matching, duplicate);
+          mergeVocabularyStates(matching.id, duplicate.id);
+          db.update(pendingReview)
+            .set({ flashcardId: matching.id })
+            .where(eq(pendingReview.flashcardId, duplicate.id))
+            .run();
+          db.delete(flashcard).where(eq(flashcard.id, duplicate.id)).run();
+        } else {
+          db.update(flashcard)
+            .set({ deckId: canonical.id, updatedAt: nowIso() })
+            .where(eq(flashcard.id, duplicate.id))
+            .run();
+        }
+      }
+      db.delete(deck).where(eq(deck.id, duplicateDeck.id)).run();
+      removed += 1;
+    }
+  }
+
+  return removed;
+}
+
 function getSqlite(): ReturnType<typeof SQLite.openDatabaseSync> {
   if (!_sqlite) {
     _sqlite = SQLite.openDatabaseSync(DB_NAME);
@@ -548,6 +598,12 @@ export function dedupeLocalFlashcards(): number {
   return getAllDecks().reduce((removed, currentDeck) => {
     return removed + dedupeDeckFlashcards(currentDeck.id);
   }, 0);
+}
+
+export function dedupeLocalDecks(): number {
+  const removedDecks = dedupeDecksByIdentity();
+  dedupeLocalFlashcards();
+  return removedDecks;
 }
 
 export function getTotalCardCount() {

@@ -74,6 +74,25 @@ beforeEach(() => {
 });
 
 describe("Full review session lifecycle", () => {
+  it("resets completion state without counting an untouched deck as reviewed", () => {
+    useReviewStore.setState({
+      deckId: "previous-deck",
+      isComplete: true,
+      answeredCount: 4,
+      completed: [makeCard({ id: "old-card" })],
+    });
+    mockGetDueCards.mockReturnValue([]);
+
+    useReviewStore.getState().loadQueue("new-deck");
+
+    const state = useReviewStore.getState();
+    expect(state.deckId).toBe("new-deck");
+    expect(state.isComplete).toBe(true);
+    expect(state.answeredCount).toBe(0);
+    expect(state.completed).toHaveLength(0);
+    expect(state.failedCards).toHaveLength(0);
+  });
+
   it("complete 3-card session: correct, incorrect, correct", () => {
     const cards = [
       makeCard({ id: "c1", difficultyScore: 0.9, answer: "爱" }),

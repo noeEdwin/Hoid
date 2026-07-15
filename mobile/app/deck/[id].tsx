@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { useDeckDetailStore } from "../../stores/useDeckDetailStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { normalize, Dimens } from "../../lib/dimens";
+import { useNavigateOnce } from "../../lib/useNavigateOnce";
 
 export default function DeckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +31,7 @@ export default function DeckDetailScreen() {
   } = useDeckDetailStore();
   const isDeckReviewedToday = useSettingsStore((s) => s.isDeckReviewedToday);
   const resetDeckReviewed = useSettingsStore((s) => s.resetDeckReviewed);
+  const navigateOnce = useNavigateOnce();
 
   const alreadyReviewedToday = id ? isDeckReviewedToday(id) : false;
 
@@ -65,15 +67,15 @@ export default function DeckDetailScreen() {
   };
 
   const handleEditDeck = () => {
-    router.push({
+    navigateOnce(() => router.push({
       pathname: "/modal/create-deck",
       params: { deckId: id },
-    });
+    }));
   };
 
   const handleStartReview = () => {
     if (!id || alreadyReviewedToday) return;
-    router.push({ pathname: "/review", params: { deckId: id } });
+    navigateOnce(() => router.push({ pathname: "/review", params: { deckId: id } }));
   };
 
   const handleResetReview = () => {
@@ -130,12 +132,10 @@ export default function DeckDetailScreen() {
             <Text style={styles.importBtnText}>{isImporting ? "..." : "Import"}</Text>
           </Pressable>
           <Pressable
-            onPress={() =>
-              router.push({
-                pathname: "/modal/create-flashcard",
-                params: { deckId: id },
-              })
-            }
+              onPress={() => navigateOnce(() => router.push({
+                  pathname: "/modal/create-flashcard",
+                  params: { deckId: id },
+                }))}
             style={styles.addBtn}
           >
             <Text style={styles.addBtnText}>+ Card</Text>
@@ -178,10 +178,10 @@ export default function DeckDetailScreen() {
           <Pressable
             style={styles.cardItem}
             onPress={() =>
-              router.push({
+              navigateOnce(() => router.push({
                 pathname: "/modal/create-flashcard",
                 params: { deckId: id, flashcardId: item.id },
-              })
+              }))
             }
             onLongPress={() => handleDeleteCard(item.id, item.answer)}
           >

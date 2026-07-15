@@ -1,4 +1,8 @@
+import Constants from "expo-constants";
+
+const configuredApiBase = Constants.expoConfig?.extra?.apiBaseUrl;
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.3.11:8000";
+const EFFECTIVE_API_BASE = configuredApiBase ?? API_BASE;
 const DEFAULT_TIMEOUT_MS = 5000;
 
 export type ApiErrorCode = "timeout" | "network" | "http" | "unknown";
@@ -6,12 +10,14 @@ export type ApiErrorCode = "timeout" | "network" | "http" | "unknown";
 export class ApiError extends Error {
   code: ApiErrorCode;
   status?: number;
+  url: string;
 
-  constructor(message: string, code: ApiErrorCode, status?: number) {
+  constructor(message: string, code: ApiErrorCode, status?: number, url: string = EFFECTIVE_API_BASE) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
+    this.url = url;
   }
 }
 
@@ -20,7 +26,7 @@ interface ApiFetchOptions extends RequestInit {
 }
 
 export function getApiBase(): string {
-  return API_BASE;
+  return EFFECTIVE_API_BASE;
 }
 
 export interface ApiDeck {
@@ -99,30 +105,80 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
   const controller = new AbortController();
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const url = `${EFFECTIVE_API_BASE}${path}`;
 
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(url, {
       headers: { "Content-Type": "application/json" },
       ...options,
       signal: controller.signal,
     });
-    if (!res.ok) {
-      throw new ApiError(`API error: ${res.status}`, "http", res.status);
+    let responseText: string | undefined;
+    let responseJson: unknown;
+    if (typeof res.text === "function") {
+      responseText = await res.text();
+      if (responseText) {
+        try {
+          responseJson = JSON.parse(responseText);
+        } catch {
+          responseJson = undefined;
+        }
+      }
+    } else {
+      responseJson = await res.json();
     }
-    return res.json();
+    if (!res.ok) {
+      const detail = (responseText ?? formatResponseBody(responseJson))
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 300);
+      throw new ApiError(
+        `API error: ${res.status}${detail ? `: ${detail}` : ""}`,
+        "http",
+        res.status,
+        url
+      );
+    }
+    if (responseJson !== undefined) {
+      return responseJson as T;
+    }
+    if (!responseText?.trim()) {
+      throw new ApiError(
+        "Invalid JSON response (empty response)",
+        "unknown",
+        undefined,
+        url
+      );
+    }
+    throw new ApiError(
+      `Invalid JSON response: ${responseText.trim().slice(0, 200)}`,
+      "unknown",
+      undefined,
+      url
+    );
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
     }
     if (error instanceof Error && error.name === "AbortError") {
-      throw new ApiError(`Request timeout after ${timeoutMs}ms`, "timeout");
+      throw new ApiError(`Request timeout after ${timeoutMs}ms`, "timeout", undefined, url);
     }
-    if (error instanceof TypeError) {
-      throw new ApiError(error.message || "Failed to fetch", "network");
+    if (error instanceof Error) {
+      throw new ApiError(error.message || "Failed to fetch", "network", undefined, url);
     }
-    throw new ApiError("Unknown API error", "unknown");
+    throw new ApiError(`Unknown API error: ${String(error)}`, "unknown", undefined, url);
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function formatResponseBody(body: unknown): string {
+  if (typeof body === "string") return body;
+  if (body === undefined) return "";
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return String(body);
   }
 }
 
@@ -346,7 +402,7 @@ export async function generateTTS(text: string): Promise<Blob> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 6000);
   try {
-    const res = await fetch(`${API_BASE}/api/tts`, {
+    const res = await fetch(`${EFFECTIVE_API_BASE}/api/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),

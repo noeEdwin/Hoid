@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { Modal, View, Text, Pressable, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -11,6 +11,7 @@ import { useVocabularyStore } from "../../stores/useVocabularyStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { performSync, type SyncStatus } from "../../lib/sync";
 import { getTomorrowDueCards } from "../../lib/database";
+import { useNavigateOnce } from "../../lib/useNavigateOnce";
 
 type DashboardSyncState = "idle" | "syncing" | SyncStatus;
 type ToastState = { visible: boolean; status: SyncStatus; message: string };
@@ -25,7 +26,9 @@ export default function DashboardScreen() {
     status: "success",
     message: "",
   });
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigateOnce = useNavigateOnce();
   const decks = useVocabularyStore((s) => s.decks);
   const totalCards = useVocabularyStore((s) => s.totalCards);
   const loadLocalData = useVocabularyStore((s) => s.loadLocalData);
@@ -50,7 +53,7 @@ export default function DashboardScreen() {
   }, []);
 
   const handleStartReview = (deckId: string) => {
-    router.push({ pathname: "/deck/[id]", params: { id: deckId } });
+    navigateOnce(() => router.push({ pathname: "/deck/[id]", params: { id: deckId } }));
   };
 
   const handleSync = useCallback(async () => {
@@ -74,11 +77,12 @@ export default function DashboardScreen() {
         status: result.status,
         message: result.message,
       });
+      const messageDurationMs = result.status === "success" ? 3000 : 15000;
       resetTimerRef.current = setTimeout(() => {
         setSyncState("idle");
         setSyncMessage("");
         setToastState((current) => ({ ...current, visible: false }));
-      }, 3000);
+      }, messageDurationMs);
     } finally {
       setIsSyncing(false);
     }
@@ -108,7 +112,7 @@ export default function DashboardScreen() {
           Your Decks
         </Text>
         <Pressable
-          onPress={() => router.push("/modal/create-deck")}
+          onPress={() => navigateOnce(() => router.push("/modal/create-deck"))}
           className="bg-primary rounded-full w-9 h-9 items-center justify-center"
         >
           <Text className="text-white text-xl leading-none">+</Text>
@@ -135,7 +139,39 @@ export default function DashboardScreen() {
         visible={toastState.visible}
         status={toastState.status}
         message={toastState.message}
+        onPress={
+          toastState.status === "success"
+            ? undefined
+            : () => setErrorDetails(toastState.message)
+        }
       />
+      <Modal
+        visible={errorDetails !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorDetails(null)}
+      >
+        <View className="flex-1 bg-black/45 items-center justify-center px-6">
+          <View className="w-full max-h-[75%] rounded-2xl bg-white p-5">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-lg font-bold text-neutral-900">同步错误</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="关闭错误详情"
+                onPress={() => setErrorDetails(null)}
+                className="rounded-full bg-neutral-100 px-3 py-1"
+              >
+                <Text className="text-neutral-700">关闭</Text>
+              </Pressable>
+            </View>
+            <ScrollView>
+              <Text selectable className="text-sm leading-5 text-neutral-700">
+                {errorDetails}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
       <GlassDock />
     </SafeAreaView>
   );

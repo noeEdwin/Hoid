@@ -6,6 +6,7 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({
     push: jest.fn(),
   }),
+  useFocusEffect: (effect: () => void) => effect(),
 }));
 
 jest.mock("../../lib/dimens", () => ({

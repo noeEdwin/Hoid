@@ -308,8 +308,8 @@ flowchart TD
     QC -->|Show first card| AP[Auto-play audio]
     AP -->|User types answer| CH{Correct?}
     CH -->|Yes| MV[Move to completed]
-    CH -->|No + attempts < 3| RE[Re-insert at end of queue]
-    CH -->|No + attempts >= 3| FL[Move to failed cards]
+    CH -->|No + attempts < 4| RE[Re-insert after 2 cards]
+    CH -->|No + attempts >= 4| FL[Move to failed cards]
     MV --> NC{More cards?}
     RE --> NC
     FL --> NC
@@ -324,8 +324,8 @@ flowchart TD
 5. User types missing word in hanzi, submits
 6. Auto-rating: correct → "good", incorrect → "hard" (no manual buttons)
 7. **If correct**: card moves to `completed[]`, attempt counter resets
-8. **If incorrect + attempts < 3**: card re-inserted at end of `remaining[]` queue
-9. **If incorrect + attempts >= 3**: card moves to `failedCards[]`, skipped for rest of session
+8. **If incorrect + attempts < 4**: card re-inserted into `remaining[]` after two other cards (or as soon as possible near the end of the queue)
+9. **If incorrect + attempts >= 4**: card moves to `failedCards[]`, skipped for rest of session
 10. Vocab state updated immediately: `totalReviews`, `totalFailures`, `consecutiveFailures`, `consecutiveCorrect`
 11. Pending review written to `pending_review` table for sync
 12. Session completes when `remaining[]` is empty

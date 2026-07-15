@@ -16,6 +16,7 @@ import { useDeckDetailStore } from "../../stores/useDeckDetailStore";
 import { useReviewStore } from "../../stores/useReviewStore";
 import { getFlashcardById } from "../../lib/database";
 import { normalize, Dimens } from "../../lib/dimens";
+import { useNavigateOnce } from "../../lib/useNavigateOnce";
 
 export default function CreateFlashcardModal() {
   const { deckId, flashcardId } = useLocalSearchParams<{
@@ -25,6 +26,7 @@ export default function CreateFlashcardModal() {
   const router = useRouter();
   const { addFlashcard, editFlashcard, isGeneratingAudio } = useDeckDetailStore();
   const injectCard = useReviewStore((s) => s.injectCard);
+  const navigateOnce = useNavigateOnce();
 
   const isEditing = !!flashcardId;
 
@@ -68,7 +70,7 @@ export default function CreateFlashcardModal() {
     if (isEditing && flashcardId) {
       editFlashcard(flashcardId, data);
       setIsSaving(false);
-      router.back();
+       navigateOnce(() => router.back());
     } else {
       await addFlashcard(data);
 
@@ -98,7 +100,7 @@ export default function CreateFlashcardModal() {
       }
 
       setIsSaving(false);
-      router.back();
+       navigateOnce(() => router.back());
     }
   };
 
