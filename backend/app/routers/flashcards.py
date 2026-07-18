@@ -29,6 +29,9 @@ from app.schemas.review import (
 )
 from app.services.flashcard_identity import find_matching_flashcard
 from app.services.srs import (
+    MAX_REVIEW_INTERVAL_DAYS,
+    apply_response_speed,
+    calculate_lapse_interval,
     MASTERY_THRESHOLD,
     calculate_mastery_correct,
     calculate_new_difficulty,
@@ -323,12 +326,19 @@ def submit_review(
         state.consecutive_correct, rating
     )
 
-    state.srs_interval = calculate_new_interval(
-        state.srs_interval,
-        state.ease_factor,
-        state.difficulty_score,
-        rating,
-        state.consecutive_correct,
+    state.srs_interval = (
+        apply_response_speed(
+            calculate_new_interval(
+                min(state.srs_interval, MAX_REVIEW_INTERVAL_DAYS),
+                state.ease_factor,
+                state.difficulty_score,
+                rating,
+                state.consecutive_correct,
+            ),
+            data.response_time_ms,
+        )
+        if data.is_correct
+        else calculate_lapse_interval(state.srs_interval, 1)
     )
     state.ease_factor = calculate_new_ease(state.ease_factor, rating)
     state.difficulty_score = calculate_new_difficulty(

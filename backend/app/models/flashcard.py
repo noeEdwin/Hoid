@@ -50,7 +50,7 @@ class UserVocabularyState(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     flashcard_id: str = Field(foreign_key="flashcard.id", unique=True, index=True)
-    srs_interval: int = Field(default=0)
+    srs_interval: int = Field(default=0, ge=0, le=365)
     ease_factor: float = Field(default=2.5)
     total_reviews: int = Field(default=0)
     total_failures: int = Field(default=0)

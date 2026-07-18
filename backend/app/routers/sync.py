@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.models.flashcard import Deck, Flashcard, UserVocabularyState
-from app.models.sync import SyncLog
+from app.models.sync import ProcessedReview, SyncLog
 from app.schemas.sync import (
     SyncDeckItem,
     SyncFlashcardItem,
@@ -21,6 +21,9 @@ from app.schemas.sync import (
 from app.services.flashcard_identity import find_matching_flashcard
 from app.schemas.review import ReviewRating
 from app.services.srs import (
+    MAX_REVIEW_INTERVAL_DAYS,
+    apply_response_speed,
+    calculate_lapse_interval,
     calculate_mastery_correct,
     calculate_new_difficulty,
     calculate_new_ease,
@@ -45,6 +48,8 @@ def _is_incoming_stale(
     incoming_updated_at: str | None,
     existing_updated_at: datetime | None,
 ) -> bool:
+    if existing_updated_at is not None and not incoming_updated_at:
+        return True
     incoming_dt = _parse_item_timestamp(incoming_updated_at)
     if incoming_dt is None or existing_updated_at is None:
         return False
@@ -131,7 +136,7 @@ def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
     if existing:
         if _is_incoming_stale(item.updated_at, existing.updated_at):
             return False
-        existing.srs_interval = item.srs_interval
+        existing.srs_interval = min(MAX_REVIEW_INTERVAL_DAYS, max(0, item.srs_interval))
         existing.ease_factor = item.ease_factor
         existing.total_reviews = item.total_reviews
         existing.total_failures = item.total_failures
@@ -145,7 +150,7 @@ def _upsert_vocab_state(session: Session, item: SyncVocabStateItem) -> bool:
         return False
     state = UserVocabularyState(
         flashcard_id=item.flashcard_id,
-        srs_interval=item.srs_interval,
+        srs_interval=min(MAX_REVIEW_INTERVAL_DAYS, max(0, item.srs_interval)),
         ease_factor=item.ease_factor,
         total_reviews=item.total_reviews,
         total_failures=item.total_failures,
@@ -181,23 +186,33 @@ def _process_pending_review(session: Session, review: SyncPendingReviewItem) -> 
     state.consecutive_correct = calculate_mastery_correct(
         state.consecutive_correct, rating
     )
-    state.srs_interval = calculate_new_interval(
-        state.srs_interval,
-        state.ease_factor,
-        state.difficulty_score,
-        rating,
-        state.consecutive_correct,
+    state.srs_interval = (
+        apply_response_speed(
+            calculate_new_interval(
+                min(state.srs_interval, MAX_REVIEW_INTERVAL_DAYS),
+                state.ease_factor,
+                state.difficulty_score,
+                rating,
+                state.consecutive_correct,
+            ),
+            review.response_time_ms,
+        )
+        if review.is_correct
+        else calculate_lapse_interval(
+            state.srs_interval,
+            max(1, review.failure_count),
+        )
     )
     state.ease_factor = calculate_new_ease(state.ease_factor, rating)
     state.difficulty_score = calculate_new_difficulty(
         state.difficulty_score,
         rating,
         review.response_time_ms,
-        state.consecutive_failures,
+        max(state.consecutive_failures, review.failure_count - 1),
     )
     state.total_reviews += 1
     if not review.is_correct:
-        state.total_failures += 1
+        state.total_failures += max(1, review.failure_count)
         state.consecutive_failures += 1
     else:
         state.consecutive_failures = 0
@@ -248,6 +263,9 @@ def sync_push(
             states_upserted += 1
 
     for review in data.pending_reviews:
+        if session.get(ProcessedReview, review.id):
+            processed_pending_review_ids.append(review.id)
+            continue
         canonical_id = flashcard_id_map.get(review.flashcard_id, review.flashcard_id)
         target_review = (
             review
@@ -257,14 +275,16 @@ def sync_push(
         if _process_pending_review(session, target_review):
             reviews_processed += 1
             processed_pending_review_ids.append(review.id)
+            session.add(ProcessedReview(id=review.id))
 
-    log = SyncLog(
-        direction="push",
-        flashcards_upserted=flashcards_upserted,
-        states_upserted=states_upserted,
-        last_sync_at=data.last_sync_at,
-    )
-    session.add(log)
+    if decks_upserted or flashcards_upserted or states_upserted or reviews_processed:
+        log = SyncLog(
+            direction="push",
+            flashcards_upserted=flashcards_upserted,
+            states_upserted=states_upserted,
+            last_sync_at=data.last_sync_at,
+        )
+        session.add(log)
     session.commit()
 
     return SyncPushResponse(
@@ -320,14 +340,6 @@ def sync_pull(
     vocab_states = list(session.exec(vocab_query).all())
 
     now = datetime.utcnow().isoformat()
-
-    log = SyncLog(
-        direction="pull",
-        flashcards_upserted=0,
-        states_upserted=0,
-    )
-    session.add(log)
-    session.commit()
 
     return SyncPullResponse(
         decks=[

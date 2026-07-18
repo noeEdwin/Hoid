@@ -11,6 +11,7 @@ from app.models import (
     Deck,
     Flashcard,
     RoleplaySession,
+    ProcessedReview,
     Scenario,
     ShadowingAttempt,
     ShadowingMedia,
@@ -45,6 +46,17 @@ def init_db() -> None:
                 connection.execute(text("ALTER TABLE user_vocabulary_state ADD COLUMN last_reviewed_at DATETIME"))
             if "next_review_at" not in columns:
                 connection.execute(text("ALTER TABLE user_vocabulary_state ADD COLUMN next_review_at DATETIME"))
+            connection.execute(text(
+                "UPDATE user_vocabulary_state "
+                "SET srs_interval = 365, "
+                "next_review_at = datetime(updated_at, '+365 days') "
+                "WHERE srs_interval > 365"
+            ))
+            connection.execute(text(
+                "UPDATE user_vocabulary_state "
+                "SET srs_interval = 0, next_review_at = NULL "
+                "WHERE srs_interval < 0"
+            ))
             connection.execute(text(
                 "UPDATE user_vocabulary_state "
                 "SET last_reviewed_at = updated_at, "

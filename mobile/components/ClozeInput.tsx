@@ -2,6 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
 import { normalize, Dimens } from "../lib/dimens";
+import {
+  formatClozeAnswer,
+  getClozeAnswers,
+  hideClozePinyin,
+  normalizeClozeAnswer,
+} from "../lib/cloze";
 
 interface ClozeInputProps {
   sentence: string;
@@ -11,23 +17,11 @@ interface ClozeInputProps {
   imagePath?: string | null;
   isResultVisible?: boolean;
   isCorrect?: boolean;
+  resultMessage?: string;
+  resultSchedule?: string;
   onSubmit: (isCorrect: boolean) => void;
   onSpeak: () => void;
   onNext?: () => void;
-}
-
-function hideAnswerPinyin(fullPinyin: string, answerPinyin: string): string {
-  const words = fullPinyin.split(/\s+/);
-  const answerWords = answerPinyin.split(/\s+/);
-  if (answerWords.length === 1) {
-    const idx = words.indexOf(answerWords[0]);
-    if (idx !== -1) {
-      words[idx] = "___";
-      return words.join(" ");
-    }
-  }
-  const cleaned = fullPinyin.replace(answerPinyin, "___");
-  return cleaned.replace(/\s+/g, " ").trim();
 }
 
 export default function ClozeInput({
@@ -38,6 +32,8 @@ export default function ClozeInput({
   imagePath,
   isResultVisible = false,
   isCorrect = false,
+  resultMessage,
+  resultSchedule,
   onSubmit,
   onSpeak,
   onNext,
@@ -55,7 +51,7 @@ export default function ClozeInput({
     const trimmed = input.trim();
     if (!trimmed) return;
 
-    const isCorrect = trimmed === answer;
+    const isCorrect = normalizeClozeAnswer(trimmed) === normalizeClozeAnswer(answer);
     Haptics.impactAsync(
       isCorrect
         ? Haptics.ImpactFeedbackStyle.Medium
@@ -66,7 +62,10 @@ export default function ClozeInput({
   };
 
   const parts = sentence.split("___");
-  const hiddenPinyin = hideAnswerPinyin(sentencePinyin, answerPinyin);
+  const blankCount = parts.length - 1;
+  const revealedAnswers = getClozeAnswers(answer, blankCount);
+  const enteredAnswers = getClozeAnswers(input, blankCount);
+  const hiddenPinyin = hideClozePinyin(sentencePinyin, answerPinyin, blankCount);
 
   return (
     <View style={styles.container}>
@@ -80,7 +79,9 @@ export default function ClozeInput({
             <Text key={i} style={styles.sentenceText}>
               {part}
               {i < parts.length - 1 && (
-                <Text style={styles.blank}>{isResultVisible ? answer : input || "___"}</Text>
+                <Text style={styles.blank}>
+                  {isResultVisible ? revealedAnswers[i] : enteredAnswers[i] || "___"}
+                </Text>
               )}
             </Text>
           ))}
@@ -92,9 +93,11 @@ export default function ClozeInput({
               {isCorrect ? "Correct!" : "Incorrect"}
             </Text>
             <View style={styles.answerRow}>
-              <Text style={styles.answer}>{answer}</Text>
-              <Text style={styles.answerPinyin}>{answerPinyin}</Text>
+              <Text style={styles.answer}>{formatClozeAnswer(answer)}</Text>
+              <Text style={styles.answerPinyin}>{formatClozeAnswer(answerPinyin)}</Text>
             </View>
+            {resultMessage ? <Text style={styles.resultMessage}>{resultMessage}</Text> : null}
+            {resultSchedule ? <Text style={styles.resultSchedule}>{resultSchedule}</Text> : null}
 
             <Pressable style={styles.speakBtn} onPress={onSpeak}>
               <Text style={styles.speakIcon}>🔊</Text>
@@ -217,6 +220,19 @@ const styles = StyleSheet.create({
   answerPinyin: {
     fontSize: normalize(16),
     color: "#757575",
+  },
+  resultMessage: {
+    fontSize: normalize(16),
+    fontWeight: "600",
+    color: "#303038",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  resultSchedule: {
+    fontSize: normalize(14),
+    color: "#61616b",
+    textAlign: "center",
+    marginBottom: 16,
   },
   input: {
     width: "100%",

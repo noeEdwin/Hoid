@@ -4,6 +4,7 @@ import { useSettingsStore } from "../useSettingsStore";
 
 jest.mock("../../lib/database", () => ({
   getDueCards: jest.fn(),
+  getFlashcardsByDeck: jest.fn(),
   addPendingReview: jest.fn(),
   getVocabularyState: jest.fn(),
   updateVocabularyState: jest.fn(),
@@ -63,6 +64,9 @@ beforeEach(() => {
     sessionStartTime: Date.now(),
     answeredCount: 0,
     deckExhaustedToday: false,
+    reviewMode: "srs",
+    resultMessage: "",
+    resultSchedule: "",
   });
   useSettingsStore.setState({
     dailyReviewLimit: 20,

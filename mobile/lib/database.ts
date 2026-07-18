@@ -11,7 +11,7 @@ import {
 } from "./schema";
 
 const DB_NAME = "tars.db";
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 
 let _sqlite: ReturnType<typeof SQLite.openDatabaseSync> | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -240,9 +240,13 @@ function ensureInitialized(): void {
   );
   const currentVersion = versionRow?.user_version ?? 0;
 
-  if (currentVersion === 4) {
+  if (currentVersion === 5) {
+    sqlite.execSync("ALTER TABLE pending_review ADD COLUMN failure_count INTEGER NOT NULL DEFAULT 0");
+    sqlite.execSync(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION}`);
+  } else if (currentVersion === 4) {
     sqlite.execSync("ALTER TABLE user_vocabulary_state ADD COLUMN last_reviewed_at TEXT");
     sqlite.execSync("ALTER TABLE user_vocabulary_state ADD COLUMN next_review_at TEXT");
+    sqlite.execSync("ALTER TABLE pending_review ADD COLUMN failure_count INTEGER NOT NULL DEFAULT 0");
     sqlite.execSync(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION}`);
   } else if (currentVersion < 4) {
     sqlite.execSync("DROP TABLE IF EXISTS pending_review");
@@ -303,6 +307,7 @@ function ensureInitialized(): void {
         flashcard_id TEXT NOT NULL,
         is_correct INTEGER NOT NULL,
         response_time_ms INTEGER NOT NULL,
+        failure_count INTEGER NOT NULL DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (flashcard_id) REFERENCES flashcard(id)
       );
@@ -310,6 +315,18 @@ function ensureInitialized(): void {
 
     sqlite.execSync(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION}`);
   }
+  sqlite.execSync(
+    "UPDATE user_vocabulary_state " +
+    "SET srs_interval = 365, " +
+    "next_review_at = datetime(COALESCE(last_reviewed_at, updated_at, CURRENT_TIMESTAMP), '+365 days') " +
+    "WHERE srs_interval > 365"
+  );
+  // Older synced cards encoded the two blanks as one repeated answer.
+  sqlite.execSync(
+    "UPDATE flashcard " +
+    "SET answer = '又', answer_pinyin = 'yòu', audio_path = NULL, updated_at = CURRENT_TIMESTAMP " +
+    "WHERE answer = '又...又...' OR answer_pinyin = 'yòu...yòu...'"
+  );
   _initialized = true;
 }
 
@@ -520,7 +537,6 @@ export function getDueCards(
   const conditions = excludeCardIds.length > 0
     ? and(eq(flashcard.deckId, deckId), notInArray(flashcard.id, excludeCardIds))
     : eq(flashcard.deckId, deckId);
-
   const dueBeforeMs = new Date(dueBefore).getTime();
   return db
     .select({
@@ -552,7 +568,6 @@ export function getDueCards(
     )
     .where(conditions)
     .orderBy(desc(userVocabularyState.difficultyScore))
-    .limit(limit)
     .all()
     .filter((card) => !card.nextReviewAt || new Date(card.nextReviewAt).getTime() <= dueBeforeMs)
     .slice(0, limit);
@@ -561,7 +576,8 @@ export function getDueCards(
 export function addPendingReview(
   flashcardId: string,
   isCorrect: boolean,
-  responseTimeMs: number
+  responseTimeMs: number,
+  failureCount: number = isCorrect ? 0 : 1,
 ) {
   const db = getDb();
   const id = uuid();
@@ -571,6 +587,7 @@ export function addPendingReview(
       flashcardId,
       isCorrect,
       responseTimeMs,
+      failureCount,
     })
     .run();
   return id;

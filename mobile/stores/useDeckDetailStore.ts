@@ -13,6 +13,7 @@ import {
 import { useVocabularyStore } from "./useVocabularyStore";
 import { generateTTS } from "../lib/api";
 import type { Flashcard } from "../lib/schema";
+import { fillClozeSentence } from "../lib/cloze";
 
 interface FlashcardItem {
   id: string;
@@ -130,7 +131,10 @@ export const useDeckDetailStore = create<DeckDetailState>((set, get) => ({
 
     useVocabularyStore.getState().loadLocalData();
 
-    const fullSentence = (data.sentence || `___${data.answer}`).replace("___", data.answer);
+    const fullSentence = fillClozeSentence(
+      data.sentence || `___${data.answer}`,
+      data.answer
+    );
 
     try {
       set({ isGeneratingAudio: true });

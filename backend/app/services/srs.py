@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from app.schemas.review import ReviewRating
 
-LEARNING_STEPS = [1, 3]
+REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60, 120, 180, 365]
+MAX_REVIEW_INTERVAL_DAYS = REVIEW_INTERVALS[-1]
 MASTERY_THRESHOLD = 3
 
 
 def _find_next_step(current_interval: int) -> int | None:
-    for step in LEARNING_STEPS:
+    for step in REVIEW_INTERVALS:
         if step > current_interval:
             return step
     return None
@@ -21,22 +22,30 @@ def calculate_new_interval(
     consecutive_correct: int = 0,
 ) -> int:
     if rating == ReviewRating.hard:
-        return LEARNING_STEPS[0]
+        return max(1, min(30, round(min(current_interval, MAX_REVIEW_INTERVAL_DAYS) * 0.1)))
 
-    if consecutive_correct >= MASTERY_THRESHOLD:
-        return max(1, int(current_interval * ease_factor))
+    next_step = _find_next_step(max(0, min(current_interval, MAX_REVIEW_INTERVAL_DAYS)))
+    interval = next_step if next_step is not None else MAX_REVIEW_INTERVAL_DAYS
+    return min(MAX_REVIEW_INTERVAL_DAYS, interval)
 
-    in_learning = current_interval <= LEARNING_STEPS[-1]
 
-    if in_learning:
-        next_step = _find_next_step(current_interval)
-        if next_step is not None:
-            return next_step
-        return max(1, int(LEARNING_STEPS[-1] * ease_factor))
+def calculate_lapse_interval(current_interval: int, failure_count: int) -> int:
+    current = max(1, min(current_interval, MAX_REVIEW_INTERVAL_DAYS))
+    if failure_count >= 3:
+        return 1
+    if failure_count == 2:
+        return max(1, min(14, round(current * 0.05)))
+    return max(1, min(30, round(current * 0.1)))
 
-    base = int(current_interval * ease_factor)
-    difficulty_modifier = 1.0 - (difficulty_score * 0.3)
-    return max(1, int(base * difficulty_modifier))
+
+def apply_response_speed(interval: int, response_time_ms: int) -> int:
+    if response_time_ms <= 15_000:
+        return min(interval, MAX_REVIEW_INTERVAL_DAYS)
+    if response_time_ms >= 30_000:
+        modifier = 0.85
+    else:
+        modifier = 1.0 - ((response_time_ms - 15_000) / 15_000) * 0.15
+    return max(1, min(MAX_REVIEW_INTERVAL_DAYS, round(interval * modifier)))
 
 
 def calculate_new_ease(current_ease: float, rating: ReviewRating) -> float:
@@ -58,8 +67,7 @@ def calculate_new_difficulty(
         consecutive_penalty = min(consecutive_failures * 0.05, 0.25)
         penalty = 0.15 + consecutive_penalty
     elif rating == ReviewRating.good:
-        response_factor = max(0.8, 1.0 - (response_time_ms - 2000) / 10000)
-        penalty = (1.0 - response_factor) * 0.1
+        penalty = 0.02 if response_time_ms > 15_000 else 0.0
     adjusted = current_difficulty + penalty
     return max(0.0, min(1.0, adjusted))
 

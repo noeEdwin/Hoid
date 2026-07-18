@@ -24,3 +24,13 @@ class SyncLog(SQLModel, table=True):
         sa_column=Column(Integer, nullable=False, server_default=text("0")),
     )
     last_sync_at: datetime | None = Field(default=None, sa_column=Column(Text))
+
+
+class ProcessedReview(SQLModel, table=True):
+    __tablename__ = "processed_review"
+
+    id: str = Field(primary_key=True)
+    processed_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")},
+    )

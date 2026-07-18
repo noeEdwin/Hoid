@@ -5,22 +5,29 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from app.models.flashcard import Flashcard, UserVocabularyState
+from app.models.flashcard import Deck, Flashcard, UserVocabularyState
 
 
 class TestCreateFlashcard:
-    def test_create_returns_201(self, client: TestClient) -> None:
+    def test_create_returns_201(self, client: TestClient, db_session: Session) -> None:
+        deck = Deck(name="Test Deck")
+        db_session.add(deck)
+        db_session.commit()
         r = client.post("/api/flashcards", json={
-            "deck_id": str(uuid.uuid4()),
+            "deck_id": deck.id,
             "sentence": "我___你",
             "answer": "爱",
         })
         assert r.status_code == 201
 
-    def test_create_returns_all_fields(self, client: TestClient) -> None:
-        deck_id = str(uuid.uuid4())
+    def test_create_returns_all_fields(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        deck = Deck(name="Test Deck")
+        db_session.add(deck)
+        db_session.commit()
         r = client.post("/api/flashcards", json={
-            "deck_id": deck_id,
+            "deck_id": deck.id,
             "sentence": "我___你",
             "sentence_pinyin": "wǒ ài nǐ",
             "answer": "爱",
@@ -34,15 +41,13 @@ class TestCreateFlashcard:
         assert data["answer_pinyin"] == "ài"
         assert data["context"] == "A simple declaration of love."
         assert data["card_type"] == "cloze_deletion"
-        assert data["deck_id"] == deck_id
+        assert data["deck_id"] == deck.id
         assert "id" in data
         assert "created_at" in data
 
     def test_create_reuses_existing_duplicate_content(
         self, client: TestClient, db_session: Session
     ) -> None:
-        from app.models.flashcard import Deck
-
         deck = Deck(name="Import Deck")
         db_session.add(deck)
         db_session.commit()

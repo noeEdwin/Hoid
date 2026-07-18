@@ -49,6 +49,7 @@ class SyncPendingReviewItem(BaseModel):
     flashcard_id: str
     is_correct: bool
     response_time_ms: int
+    failure_count: int = 0
     created_at: Optional[str] = None
 
 

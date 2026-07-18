@@ -4,8 +4,9 @@ jest.mock("expo-file-system", () => {
     Paths: { document: "mock-doc-dir" },
     File: jest.fn().mockImplementation((dir, name) => ({
       get path() { return `${dir}/${name}`; },
-      get exists() { return !!store[this.path]; },
-      textSync() { return store[this.path] || ""; },
+       get exists() { return !!store[this.path]; },
+       async text() { return store[this.path] || ""; },
+       textSync() { return store[this.path] || ""; },
       write(content) { store[this.path] = content; },
       delete() { delete store[this.path]; },
     })),

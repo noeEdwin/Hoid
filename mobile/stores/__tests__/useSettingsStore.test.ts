@@ -1,7 +1,10 @@
 import { useSettingsStore } from "../useSettingsStore";
 
 function today(): string {
-  return new Date().toISOString().split("T")[0];
+  const date = new Date();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 beforeEach(() => {
@@ -12,6 +15,10 @@ beforeEach(() => {
     reviewedDates: [],
     isLoaded: false,
   });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe("useSettingsStore review limits", () => {
@@ -58,5 +65,91 @@ describe("useSettingsStore review limits", () => {
     useSettingsStore.getState().markDeckReviewed("deck-1", ["c1", "c2"], true);
 
     expect(useSettingsStore.getState().isDeckReviewedToday("deck-1")).toBe(true);
+  });
+
+  it("resets deck completion at local midnight", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 17, 23, 59));
+    useSettingsStore.getState().markDeckReviewed("deck-1", ["c1"], true);
+
+    jest.setSystemTime(new Date(2026, 6, 18, 0, 1));
+
+    expect(useSettingsStore.getState().isDeckReviewedToday("deck-1")).toBe(false);
+    expect(useSettingsStore.getState().getDeckReviewedCardIdsToday("deck-1")).toEqual([]);
+    expect(useSettingsStore.getState().getRemainingDailyReviews("deck-1")).toBe(20);
+  });
+});
+
+describe("useSettingsStore streak", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("counts consecutive local calendar days", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 18, 0, 1));
+    useSettingsStore.setState({ reviewedDates: ["2026-07-16", "2026-07-17", "2026-07-18"] });
+
+    expect(useSettingsStore.getState().getStreak()).toBe(3);
+  });
+
+  it("preserves yesterday's streak until today's review", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 18, 12));
+    useSettingsStore.setState({ reviewedDates: ["2026-07-16", "2026-07-17"] });
+
+    expect(useSettingsStore.getState().getStreak()).toBe(2);
+  });
+
+  it("returns zero after a skipped local calendar day", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 18, 12));
+    useSettingsStore.setState({ reviewedDates: ["2026-07-15", "2026-07-16"] });
+
+    expect(useSettingsStore.getState().getStreak()).toBe(0);
+  });
+});
+
+describe("useSettingsStore date migration", () => {
+  function writeSettings(settings: object): void {
+    const { File, Directory, Paths } = require("expo-file-system");
+    new File(new Directory(Paths.document), "settings.json").write(JSON.stringify(settings));
+  }
+
+  it("clears only legacy UTC deck locks", async () => {
+    writeSettings({
+      dailyReviewLimit: 40,
+      drillMode: false,
+      deckReviewHistory: {
+        "master-deck": { date: today(), reviewedCardIds: ["c1"], exhausted: true },
+      },
+      reviewedDates: ["2026-07-16", "2026-07-17"],
+      lastSyncAt: "2026-07-17T20:00:00.000Z",
+    });
+
+    await useSettingsStore.getState().loadSettings();
+
+    const state = useSettingsStore.getState();
+    expect(state.deckReviewHistory).toEqual({});
+    expect(state.reviewedDates).toEqual(["2026-07-16", "2026-07-17"]);
+    expect(state.dailyReviewLimit).toBe(40);
+    expect(state.drillMode).toBe(false);
+    expect(state.lastSyncAt).toBe("2026-07-17T20:00:00.000Z");
+  });
+
+  it("preserves local-date deck locks after migration", async () => {
+    writeSettings({
+      dailyReviewLimit: 20,
+      drillMode: true,
+      reviewDateBasis: "local",
+      deckReviewHistory: {
+        "master-deck": { date: today(), reviewedCardIds: ["c1"], exhausted: true },
+      },
+      reviewedDates: [today()],
+    });
+
+    await useSettingsStore.getState().loadSettings();
+
+    expect(useSettingsStore.getState().isDeckReviewedToday("master-deck")).toBe(true);
   });
 });

@@ -14,8 +14,10 @@ import { useDeckDetailStore } from "../../stores/useDeckDetailStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { normalize, Dimens } from "../../lib/dimens";
 import { useNavigateOnce } from "../../lib/useNavigateOnce";
+import { useLocalDayRefresh } from "../../lib/local-date";
 
 export default function DeckDetailScreen() {
+  useLocalDayRefresh();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const {
@@ -30,7 +32,6 @@ export default function DeckDetailScreen() {
     bulkImportCards,
   } = useDeckDetailStore();
   const isDeckReviewedToday = useSettingsStore((s) => s.isDeckReviewedToday);
-  const resetDeckReviewed = useSettingsStore((s) => s.resetDeckReviewed);
   const navigateOnce = useNavigateOnce();
 
   const alreadyReviewedToday = id ? isDeckReviewedToday(id) : false;
@@ -78,13 +79,16 @@ export default function DeckDetailScreen() {
     navigateOnce(() => router.push({ pathname: "/review", params: { deckId: id } }));
   };
 
-  const handleResetReview = () => {
+  const handlePracticeAgain = () => {
     if (!id) return;
-    Alert.alert("Reset Review", "Allow reviewing this deck again today?", [
+    Alert.alert("Practice Again", "Practice this deck without changing SRS data?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Reset",
-        onPress: () => resetDeckReviewed(id),
+        text: "Practice",
+        onPress: () => navigateOnce(() => router.push({
+          pathname: "/review",
+          params: { deckId: id, mode: "practice" },
+        })),
       },
     ]);
   };
@@ -159,8 +163,8 @@ export default function DeckDetailScreen() {
             <Text style={styles.completedIcon}>✅</Text>
             <Text style={styles.completedText}>Reviewed for today</Text>
             <Text style={styles.completedSubtext}>Come back tomorrow!</Text>
-            <Pressable onPress={handleResetReview} style={styles.resetBtn}>
-              <Text style={styles.resetBtnText}>Review again</Text>
+            <Pressable onPress={handlePracticeAgain} style={styles.resetBtn}>
+              <Text style={styles.resetBtnText}>Practice again</Text>
             </Pressable>
           </View>
         ) : (

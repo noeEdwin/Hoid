@@ -17,8 +17,16 @@ import {
 import { deck, flashcard, userVocabularyState } from "./schema";
 import { eq } from "drizzle-orm";
 import * as crypto from "expo-crypto";
+import { useSettingsStore } from "../stores/useSettingsStore";
 
 export type SyncStatus = "success" | "partial" | "failure";
+
+interface PullUpdatesResult {
+  decksApplied: number;
+  flashcardsApplied: number;
+  statesApplied: number;
+  syncedAt: string;
+}
 
 export interface PerformSyncResult {
   status: SyncStatus;
@@ -26,6 +34,8 @@ export interface PerformSyncResult {
   pushOk: boolean;
   pullOk: boolean;
   processedPendingReviewIds: string[];
+  changesApplied: number;
+  nothingToSync: boolean;
   errorCode?: ApiErrorCode;
   failingStage?: "push" | "pull";
 }
@@ -44,14 +54,16 @@ function getSyncFailureMessage(
     if (apiError.code === "timeout") {
       return {
         errorCode: apiError.code,
-        message: stage === "push" ? "上传超时（5秒）" : "下载超时（5秒）",
+          message: stage === "push" ? "Upload timed out (5 seconds)" : "Download timed out (5 seconds)",
       };
     }
 
     if (apiError.code === "network") {
       return {
         errorCode: apiError.code,
-        message: `${stage === "push" ? "上传" : "下载"}网络错误：无法连接服务器。${(error as { message?: string }).message ?? "未知网络错误"}（${getApiBase()}）`,
+        message: `${stage === "push" ? "Upload" : "Download"} network error: unable to connect to the server. ${
+          (error as { message?: string }).message ?? "Unknown network error"
+        } (${getApiBase()})`,
       };
     }
 
@@ -60,15 +72,15 @@ function getSyncFailureMessage(
         errorCode: apiError.code,
         message:
           stage === "push"
-            ? `上传失败（HTTP ${apiError.status ?? "?"}）：${(error as { message?: string }).message ?? "服务器错误"}`
-            : `下载失败（HTTP ${apiError.status ?? "?"}）：${(error as { message?: string }).message ?? "服务器错误"}`,
+            ? `Upload failed (HTTP ${apiError.status ?? "?"}): ${(error as { message?: string }).message ?? "Server error"}`
+            : `Download failed (HTTP ${apiError.status ?? "?"}): ${(error as { message?: string }).message ?? "Server error"}`,
       };
     }
   }
 
   return {
     errorCode: "unknown",
-    message: `${stage === "push" ? "上传" : "下载"}失败：${error instanceof Error ? error.message : String(error)}`,
+    message: `${stage === "push" ? "Upload" : "Download"} failed: ${error instanceof Error ? error.message : String(error)}`,
   };
 }
 
@@ -87,34 +99,46 @@ async function performSyncInternal(): Promise<PerformSyncResult> {
   let pushOk = false;
   let pullOk = false;
   let processedPendingReviewIds: string[] = [];
+  let changesApplied = 0;
   let pushFailure: ReturnType<typeof getSyncFailureMessage> | null = null;
   let pullFailure: ReturnType<typeof getSyncFailureMessage> | null = null;
+  let syncedAt: string | null = null;
+  const lastSyncAt = useSettingsStore.getState().getLastSyncAt();
 
   try {
-    const pushResult = await pushPendingReviews();
+    const pushResult = await pushPendingReviews(lastSyncAt);
     pushOk = true;
     processedPendingReviewIds = pushResult.processedPendingReviewIds;
+    changesApplied += pushResult.changesApplied;
   } catch (e) {
     console.warn("[sync] push failed:", e);
     pushFailure = getSyncFailureMessage("push", e);
   }
   try {
-    await pullUpdates();
+    const pullResult = await pullUpdates(lastSyncAt);
     pullOk = true;
+    syncedAt = pullResult.syncedAt;
+    changesApplied += pullResult.decksApplied + pullResult.flashcardsApplied + pullResult.statesApplied;
   } catch (e) {
     console.warn("[sync] pull failed:", e);
     pullFailure = getSyncFailureMessage("pull", e);
   }
 
   if (pushOk && pullOk) {
+    const nothingToSync = changesApplied === 0 && processedPendingReviewIds.length === 0;
+    if (syncedAt) useSettingsStore.getState().setLastSyncAt(syncedAt);
     return {
       status: "success",
-      message: processedPendingReviewIds.length > 0
-        ? `同步完成，已处理 ${processedPendingReviewIds.length} 条复习记录`
-        : "同步完成",
+      message: nothingToSync
+        ? "Nothing to sync"
+        : processedPendingReviewIds.length > 0
+        ? `Sync complete, processed ${processedPendingReviewIds.length} review record${processedPendingReviewIds.length === 1 ? "" : "s"}`
+        : "Sync complete",
       pushOk,
       pullOk,
       processedPendingReviewIds,
+      changesApplied,
+      nothingToSync,
     };
   }
 
@@ -122,11 +146,13 @@ async function performSyncInternal(): Promise<PerformSyncResult> {
     return {
       status: "partial",
       message: pushOk
-        ? `部分同步完成，${pullFailure?.message ?? "下载失败"}`
-        : `部分同步完成，${pushFailure?.message ?? "上传失败"}`,
+        ? `Sync partially complete: ${pullFailure?.message ?? "Download failed"}`
+        : `Sync partially complete: ${pushFailure?.message ?? "Upload failed"}`,
       pushOk,
       pullOk,
       processedPendingReviewIds,
+      changesApplied,
+      nothingToSync: false,
       errorCode: pushOk ? pullFailure?.errorCode : pushFailure?.errorCode,
       failingStage: pushOk ? "pull" : "push",
     };
@@ -134,32 +160,41 @@ async function performSyncInternal(): Promise<PerformSyncResult> {
 
   return {
     status: "failure",
-    message: pullFailure?.message ?? pushFailure?.message ?? "同步失败",
+    message: pullFailure?.message ?? pushFailure?.message ?? "Sync failed",
     pushOk,
     pullOk,
     processedPendingReviewIds,
+    changesApplied,
+    nothingToSync: false,
     errorCode: pullFailure?.errorCode ?? pushFailure?.errorCode,
     failingStage: pullFailure ? "pull" : pushFailure ? "push" : undefined,
   };
 }
 
-export async function pushPendingReviews(): Promise<{
+function isChangedSince(updatedAt: string | null | undefined, since?: string): boolean {
+  return !since || !updatedAt || updatedAt > since;
+}
+
+export async function pushPendingReviews(since?: string): Promise<{
   processedPendingReviewIds: string[];
+  changesApplied: number;
 }> {
   dedupeLocalDecks?.();
   const allDecks = getAllDecks();
+  const changedDecks = allDecks.filter((deckItem) => isChangedSince(deckItem.updatedAt, since));
   const allFlashcards = allDecks.flatMap((d) => getFlashcardsByDeck(d.id));
+  const changedFlashcards = allFlashcards.filter((card) => isChangedSince(card.updatedAt, since));
   const pending = getPendingReviews();
 
   const result = await apiPushSync({
-    decks: allDecks.map((d) => ({
+    decks: changedDecks.map((d) => ({
       id: d.id,
       name: d.name,
       description: d.description,
       created_at: d.createdAt ?? undefined,
       updated_at: d.updatedAt ?? undefined,
     })),
-    flashcards: allFlashcards.map((f) => ({
+    flashcards: changedFlashcards.map((f) => ({
       id: f.id,
       deck_id: f.deckId,
       card_type: f.cardType,
@@ -177,6 +212,7 @@ export async function pushPendingReviews(): Promise<{
     vocabulary_states: allFlashcards
       .map((f) => getVocabularyState(f.id))
       .filter(Boolean)
+      .filter((s) => isChangedSince(s!.updatedAt, since))
       .map((s) => ({
         flashcard_id: s!.flashcardId,
         srs_interval: s!.srsInterval ?? 0,
@@ -195,6 +231,7 @@ export async function pushPendingReviews(): Promise<{
       flashcard_id: r.flashcardId,
       is_correct: r.isCorrect,
       response_time_ms: r.responseTimeMs,
+      failure_count: r.failureCount,
       created_at: r.createdAt ?? undefined,
     })),
   });
@@ -202,12 +239,23 @@ export async function pushPendingReviews(): Promise<{
   clearPendingReviews(result.processed_pending_review_ids);
   return {
     processedPendingReviewIds: result.processed_pending_review_ids,
+    changesApplied:
+      result.decks_upserted +
+      result.flashcards_upserted +
+      result.states_upserted +
+      result.reviews_processed,
   };
 }
 
-export async function pullUpdates(): Promise<void> {
-  const data = await apiPullSync();
+export async function pullUpdates(since?: string): Promise<PullUpdatesResult> {
+  const data = await apiPullSync(since);
   const db = getDb();
+  const applied: PullUpdatesResult = {
+    decksApplied: 0,
+    flashcardsApplied: 0,
+    statesApplied: 0,
+    syncedAt: data.synced_at,
+  };
   const localDecks = getAllDecks();
   const availableDeckIds = new Set<string>(localDecks.map((d) => d.id));
   const availableFlashcardIds = new Set<string>(
@@ -220,8 +268,10 @@ export async function pullUpdates(): Promise<void> {
     if (existing) {
       if (d.updated_at && existing.updatedAt && d.updated_at <= existing.updatedAt) continue;
       db.update(deck).set({ name: d.name, description: d.description, updatedAt: d.updated_at ?? existing.updatedAt }).where(eq(deck.id, d.id)).run();
+      applied.decksApplied += 1;
     } else {
       db.insert(deck).values({ id: d.id, name: d.name, description: d.description, createdAt: d.created_at, updatedAt: d.updated_at }).run();
+      applied.decksApplied += 1;
     }
   }
 
@@ -248,6 +298,7 @@ export async function pullUpdates(): Promise<void> {
         })
         .where(eq(flashcard.id, f.id))
         .run();
+      applied.flashcardsApplied += 1;
     } else {
       db.insert(flashcard)
         .values({
@@ -266,6 +317,7 @@ export async function pullUpdates(): Promise<void> {
           updatedAt: f.updated_at,
         })
         .run();
+      applied.flashcardsApplied += 1;
     }
     availableFlashcardIds.add(f.id);
   }
@@ -293,6 +345,7 @@ export async function pullUpdates(): Promise<void> {
         })
         .where(eq(userVocabularyState.flashcardId, vs.flashcard_id))
         .run();
+      applied.statesApplied += 1;
     } else {
       db.insert(userVocabularyState)
         .values({
@@ -310,8 +363,10 @@ export async function pullUpdates(): Promise<void> {
            updatedAt: vs.updated_at,
         })
         .run();
+      applied.statesApplied += 1;
     }
   }
 
   dedupeLocalDecks?.();
+  return applied;
 }

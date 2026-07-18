@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import GlassDock from "../../components/GlassDock";
 import { fetchSrsHealth, type ApiSrsHealth } from "../../lib/api";
+import { formatReviewInterval } from "../../lib/srs";
 
 export default function ProgressScreen() {
   const [health, setHealth] = useState<ApiSrsHealth | null>(null);
@@ -48,14 +49,16 @@ export default function ProgressScreen() {
               <View key={card.flashcard_id} className="bg-white rounded-2xl p-4 mb-2">
                 <Text className="text-lg text-neutral-900">{card.answer}</Text>
                 <Text className="text-sm text-neutral-500" numberOfLines={1}>{card.sentence}</Text>
-                <Text className="text-xs text-neutral-500 mt-2">难度 {card.difficulty_score.toFixed(3)} · 失败 {card.total_failures} · 间隔 {card.srs_interval} 天</Text>
+                <Text className="text-xs text-neutral-500 mt-2">难度 {card.difficulty_score.toFixed(3)} · 失败 {card.total_failures} · 间隔 {formatReviewInterval(card.srs_interval)}</Text>
               </View>
             ))}
             <Text className="text-lg font-semibold text-neutral-900 mt-5 mb-3">最近复习</Text>
             {health.recently_reviewed.map((card) => (
               <View key={`${card.flashcard_id}-recent`} className="bg-white rounded-2xl p-4 mb-2">
                 <Text className="text-neutral-900">{card.answer} · {card.total_reviews} 次</Text>
-                <Text className="text-xs text-neutral-500 mt-1">下次：{card.next_review_at ?? "立即"}</Text>
+                <Text className="text-xs text-neutral-500 mt-1">
+                  下次：{card.next_review_at ? new Date(card.next_review_at).toLocaleString() : "立即"}
+                </Text>
               </View>
             ))}
             <Pressable onPress={loadHealth} className="bg-primary rounded-2xl py-3 items-center mt-4">

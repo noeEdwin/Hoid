@@ -12,11 +12,13 @@ import { useSettingsStore } from "../../stores/useSettingsStore";
 import { performSync, type SyncStatus } from "../../lib/sync";
 import { getTomorrowDueCards } from "../../lib/database";
 import { useNavigateOnce } from "../../lib/useNavigateOnce";
+import { useLocalDayRefresh } from "../../lib/local-date";
 
 type DashboardSyncState = "idle" | "syncing" | SyncStatus;
 type ToastState = { visible: boolean; status: SyncStatus; message: string };
 
 export default function DashboardScreen() {
+  useLocalDayRefresh();
   const router = useRouter();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncState, setSyncState] = useState<DashboardSyncState>("idle");
@@ -63,7 +65,7 @@ export default function DashboardScreen() {
     setToastState((current) => ({ ...current, visible: false }));
     setIsSyncing(true);
     setSyncState("syncing");
-    setSyncMessage("正在同步...");
+    setSyncMessage("Syncing...");
     try {
       const result = await performSync();
       if (result.pullOk || result.status === "success") {

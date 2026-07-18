@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.models.flashcard import Deck, Flashcard, UserVocabularyState
+from app.models.sync import SyncLog
 
 
 class TestSyncPush:
@@ -47,6 +48,35 @@ class TestSyncPush:
         fc = db_session.get(Flashcard, fc_id)
         assert fc is not None
         assert fc.sentence == "我___你"
+
+    def test_push_does_not_overwrite_existing_flashcard_without_updated_at(
+        self, client: TestClient, create_flashcard, db_session: Session
+    ) -> None:
+        flashcard = create_flashcard(
+            sentence="这家商店的衣服卖___贵不贵？",
+            sentence_pinyin="zhè jiā shāngdiàn de yīfu mài de guì bu guì?",
+            answer="得",
+            answer_pinyin="de",
+        )
+
+        result = client.post("/api/sync/push", json={
+            "decks": [],
+            "flashcards": [{
+                "id": flashcard.id,
+                "deck_id": flashcard.deck_id,
+                "card_type": flashcard.card_type,
+                "sentence": "这家商店的衣服卖___？",
+                "sentence_pinyin": "zhè jiā shāngdiàn de yīfu mài de guì bu guì?",
+                "answer": "得",
+                "answer_pinyin": "de",
+            }],
+            "vocabulary_states": [],
+            "pending_reviews": [],
+        }).json()
+
+        assert result["flashcards_upserted"] == 0
+        db_session.refresh(flashcard)
+        assert flashcard.sentence == "这家商店的衣服卖___贵不贵？"
 
     def test_push_maps_duplicate_content_to_canonical_flashcard(
         self, client: TestClient, db_session: Session
@@ -166,6 +196,86 @@ class TestSyncPush:
         assert state.consecutive_correct == 1
         assert state.difficulty_score >= 0.0
 
+    def test_pending_review_is_idempotent(
+        self, client: TestClient, create_flashcard, db_session: Session
+    ) -> None:
+        fc = create_flashcard()
+        review_id = str(uuid.uuid4())
+        payload = {
+            "decks": [],
+            "flashcards": [],
+            "vocabulary_states": [],
+            "pending_reviews": [{
+                "id": review_id,
+                "flashcard_id": fc.id,
+                "is_correct": True,
+                "response_time_ms": 2000,
+            }],
+        }
+
+        first = client.post("/api/sync/push", json=payload).json()
+        second = client.post("/api/sync/push", json=payload).json()
+
+        assert first["reviews_processed"] == 1
+        assert second["reviews_processed"] == 0
+        assert second["processed_pending_review_ids"] == [review_id]
+        state = db_session.exec(
+            select(UserVocabularyState).where(UserVocabularyState.flashcard_id == fc.id)
+        ).first()
+        assert state is not None
+        assert state.total_reviews == 1
+
+    def test_yearly_card_lapse_uses_failure_count(
+        self, client: TestClient, create_flashcard, db_session: Session
+    ) -> None:
+        fc = create_flashcard()
+        state = UserVocabularyState(
+            flashcard_id=fc.id,
+            srs_interval=365,
+            consecutive_correct=8,
+        )
+        db_session.add(state)
+        db_session.commit()
+
+        result = client.post("/api/sync/push", json={
+            "decks": [],
+            "flashcards": [],
+            "vocabulary_states": [],
+            "pending_reviews": [{
+                "id": str(uuid.uuid4()),
+                "flashcard_id": fc.id,
+                "is_correct": False,
+                "failure_count": 2,
+                "response_time_ms": 2000,
+            }],
+        }).json()
+
+        assert result["reviews_processed"] == 1
+        db_session.refresh(state)
+        assert state.srs_interval == 14
+        assert state.total_failures == 2
+
+    def test_push_clamps_oversized_interval(
+        self, client: TestClient, create_flashcard, db_session: Session
+    ) -> None:
+        fc = create_flashcard()
+        result = client.post("/api/sync/push", json={
+            "decks": [],
+            "flashcards": [],
+            "vocabulary_states": [{
+                "flashcard_id": fc.id,
+                "srs_interval": 999999,
+            }],
+            "pending_reviews": [],
+        }).json()
+
+        assert result["states_upserted"] == 1
+        state = db_session.exec(
+            select(UserVocabularyState).where(UserVocabularyState.flashcard_id == fc.id)
+        ).first()
+        assert state is not None
+        assert state.srs_interval == 365
+
     def test_push_multiple_reviews_same_card(
         self, client: TestClient, create_flashcard, db_session: Session
     ) -> None:
@@ -208,7 +318,7 @@ class TestSyncPush:
         assert result["reviews_processed"] == 0
         assert result["processed_pending_review_ids"] == []
 
-    def test_push_empty_payload(self, client: TestClient) -> None:
+    def test_push_empty_payload(self, client: TestClient, db_session: Session) -> None:
         result = client.post("/api/sync/push", json={
             "decks": [],
             "flashcards": [],
@@ -217,6 +327,8 @@ class TestSyncPush:
         }).json()
         assert result["decks_upserted"] == 0
         assert result["reviews_processed"] == 0
+        logs = db_session.exec(select(SyncLog)).all()
+        assert logs == []
 
     def test_push_response_shape(self, client: TestClient) -> None:
         result = client.post("/api/sync/push", json={
@@ -233,6 +345,14 @@ class TestSyncPush:
 
 
 class TestSyncPull:
+    def test_pull_does_not_write_sync_log(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        client.get("/api/sync/pull")
+
+        logs = db_session.exec(select(SyncLog)).all()
+        assert logs == []
+
     def test_pull_returns_all_when_no_since(self, client: TestClient) -> None:
         result = client.get("/api/sync/pull").json()
         assert "decks" in result
@@ -299,14 +419,14 @@ class TestSyncPull:
     ) -> None:
         fc = create_flashcard()
         db_session.exec(text("PRAGMA foreign_keys = OFF"))
-        db_session.exec(
+        db_session.execute(
             text(
                 "INSERT INTO user_vocabulary_state "
                 "(id, flashcard_id, srs_interval, ease_factor, total_reviews, total_failures, "
                 "consecutive_failures, consecutive_correct, difficulty_score, updated_at) "
                 "VALUES (:id, :flashcard_id, 0, 2.5, 0, 0, 0, 0, 0.0, :updated_at)"
             ),
-            {
+            params={
                 "id": str(uuid.uuid4()),
                 "flashcard_id": str(uuid.uuid4()),
                 "updated_at": datetime.now(timezone.utc).isoformat(),

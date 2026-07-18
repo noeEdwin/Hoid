@@ -3,6 +3,7 @@ import { useSettingsStore } from "../useSettingsStore";
 
 jest.mock("../../lib/database", () => ({
   getDueCards: jest.fn(),
+  getFlashcardsByDeck: jest.fn(),
   addPendingReview: jest.fn(),
   getVocabularyState: jest.fn(),
   updateVocabularyState: jest.fn(),
@@ -10,12 +11,14 @@ jest.mock("../../lib/database", () => ({
 
 import {
   getDueCards,
+  getFlashcardsByDeck,
   addPendingReview,
   getVocabularyState,
   updateVocabularyState,
 } from "../../lib/database";
 
 const mockGetDueCards = getDueCards as jest.MockedFunction<typeof getDueCards>;
+const mockGetFlashcardsByDeck = getFlashcardsByDeck as jest.MockedFunction<typeof getFlashcardsByDeck>;
 const mockAddPendingReview = addPendingReview as jest.MockedFunction<typeof addPendingReview>;
 const mockGetVocabularyState = getVocabularyState as jest.MockedFunction<typeof getVocabularyState>;
 const mockUpdateVocabularyState = updateVocabularyState as jest.MockedFunction<typeof updateVocabularyState>;
@@ -69,6 +72,8 @@ beforeEach(() => {
     failedCards: [],
     missedCardIds: new Set(),
     attemptCount: new Map(),
+    drillCorrectCount: new Map(),
+    failureCount: new Map(),
     deckId: null,
     isComplete: false,
     showResult: false,
@@ -77,6 +82,9 @@ beforeEach(() => {
     sessionStartTime: Date.now(),
     answeredCount: 0,
     deckExhaustedToday: false,
+    resultMessage: "",
+    resultSchedule: "",
+    reviewMode: "srs",
   });
   useSettingsStore.setState({
     dailyReviewLimit: 20,
@@ -84,6 +92,103 @@ beforeEach(() => {
     deckReviewHistory: {},
     reviewedDates: [],
     isLoaded: false,
+  });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+describe("practice mode", () => {
+  it("loads all deck cards without using due queue or daily review history", () => {
+    const cards = [makeCard({ id: "c1" }), makeCard({ id: "c2" })];
+    mockGetFlashcardsByDeck.mockReturnValue(cards as any);
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
+
+    useReviewStore.getState().loadQueue("deck-1", "practice");
+
+    expect(mockGetDueCards).not.toHaveBeenCalled();
+    expect(useReviewStore.getState().reviewMode).toBe("practice");
+    expect(useReviewStore.getState().remaining).toHaveLength(2);
+  });
+
+  it("does not write pending reviews or vocabulary state when completed", () => {
+    mockGetFlashcardsByDeck.mockReturnValue([makeCard({ id: "c1", srsInterval: 30, consecutiveCorrect: 3 })] as any);
+    mockGetVocabularyState.mockReturnValue(
+      makeVocabState({ srsInterval: 30, consecutiveCorrect: 3 }) as any,
+    );
+
+    useReviewStore.getState().loadQueue("deck-1", "practice");
+    useReviewStore.getState().submitAnswer(true);
+
+    expect(mockAddPendingReview).not.toHaveBeenCalled();
+    expect(mockUpdateVocabularyState).not.toHaveBeenCalled();
+    expect(useReviewStore.getState().completed).toHaveLength(1);
+    expect(useReviewStore.getState().resultSchedule).toBe("Practice only - no schedule changes");
+  });
+
+  it("does not save practice sessions", () => {
+    mockGetFlashcardsByDeck.mockReturnValue([makeCard({ id: "c1" })] as any);
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
+
+    useReviewStore.getState().loadQueue("deck-1", "practice");
+    useReviewStore.getState().saveSession();
+    mockGetDueCards.mockReturnValue([]);
+    useReviewStore.getState().loadQueue("deck-1");
+
+    expect(useReviewStore.getState().reviewMode).toBe("srs");
+    expect(mockGetDueCards).toHaveBeenCalled();
+  });
+});
+
+describe("dynamic drill scheduling", () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ drillMode: true });
+    mockGetDueCards.mockReturnValue([makeCard({ id: "c1" })] as any);
+    mockGetVocabularyState.mockReturnValue(makeVocabState() as any);
+    useReviewStore.getState().loadQueue("deck-1");
+    jest.clearAllMocks();
+  });
+
+  it("requires two checks for a new card and writes one final outcome", () => {
+    useReviewStore.getState().submitAnswer(true);
+    expect(mockAddPendingReview).not.toHaveBeenCalled();
+    expect(useReviewStore.getState().lastResultCorrect).toBe(true);
+
+    useReviewStore.getState().submitAnswer(true);
+    expect(mockAddPendingReview).toHaveBeenCalledTimes(1);
+    expect(mockAddPendingReview).toHaveBeenCalledWith("c1", true, expect.any(Number), 0);
+    expect(useReviewStore.getState().completed).toHaveLength(1);
+  });
+
+  it("lets a stable card complete with one correct answer", () => {
+    mockGetVocabularyState.mockReturnValue(
+      makeVocabState({ srsInterval: 30, consecutiveCorrect: 3 }) as any,
+    );
+
+    useReviewStore.getState().submitAnswer(true);
+
+    expect(useReviewStore.getState().completed).toHaveLength(1);
+    expect(mockAddPendingReview).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires two consecutive checks after one failure", () => {
+    useReviewStore.getState().submitAnswer(false);
+    useReviewStore.getState().submitAnswer(true);
+    expect(mockAddPendingReview).not.toHaveBeenCalled();
+
+    useReviewStore.getState().submitAnswer(true);
+    expect(mockAddPendingReview).toHaveBeenCalledWith("c1", false, expect.any(Number), 1);
+  });
+
+  it("does not abandon a card after repeated failures", () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      useReviewStore.getState().submitAnswer(false);
+    }
+
+    expect(useReviewStore.getState().remaining).toHaveLength(1);
+    expect(useReviewStore.getState().failedCards).toHaveLength(0);
+    expect(mockAddPendingReview).not.toHaveBeenCalled();
   });
 });
 
@@ -169,6 +274,23 @@ describe("loadQueue", () => {
 
     expect(mockGetDueCards).not.toHaveBeenCalled();
     expect(useReviewStore.getState().isComplete).toBe(true);
+  });
+
+  it("does not restore a saved session from the previous local day", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 17, 23, 59));
+    useReviewStore.setState({
+      deckId: "deck-1",
+      remaining: [makeCard({ id: "yesterday-card" })],
+    });
+    useReviewStore.getState().saveSession();
+
+    jest.setSystemTime(new Date(2026, 6, 18, 0, 1));
+    mockGetDueCards.mockReturnValue([makeCard({ id: "today-card" })] as any);
+    useReviewStore.getState().loadQueue("deck-1");
+
+    expect(mockGetDueCards).toHaveBeenCalled();
+    expect(useReviewStore.getState().remaining.map((card) => card.id)).toEqual(["today-card"]);
   });
 
   it("resets showResult to false", () => {

@@ -3,6 +3,8 @@ from __future__ import annotations
 from app.schemas.review import ReviewRating
 from app.services.srs import (
     MASTERY_THRESHOLD,
+    apply_response_speed,
+    calculate_lapse_interval,
     calculate_mastery_correct,
     calculate_new_difficulty,
     calculate_new_ease,
@@ -31,10 +33,8 @@ class TestCalculateNewInterval:
         result = calculate_new_interval(10, 2.5, 0.0, ReviewRating.hard)
         assert result == 1
 
-    def test_difficulty_suppresses_interval(self) -> None:
-        no_diff = calculate_new_interval(10, 2.5, 0.0, ReviewRating.good)
-        with_diff = calculate_new_interval(10, 2.5, 0.5, ReviewRating.good)
-        assert with_diff < no_diff
+    def test_uses_fixed_review_ladder(self) -> None:
+        assert calculate_new_interval(10, 2.5, 0.0, ReviewRating.good) == 14
 
     def test_interval_never_below_1(self) -> None:
         result = calculate_new_interval(1, 1.3, 1.0, ReviewRating.good)
@@ -44,13 +44,24 @@ class TestCalculateNewInterval:
         result = calculate_new_interval(
             7, 2.5, 0.0, ReviewRating.good, consecutive_correct=MASTERY_THRESHOLD
         )
-        assert result == 17
+        assert result == 14
 
     def test_mastered_card_hard_resets_to_learning(self) -> None:
         result = calculate_new_interval(
             42, 2.5, 0.0, ReviewRating.hard, consecutive_correct=MASTERY_THRESHOLD
         )
-        assert result == 1
+        assert result == 4
+
+    def test_interval_never_exceeds_one_year(self) -> None:
+        assert calculate_new_interval(365, 3.0, 0.0, ReviewRating.good) == 365
+
+    def test_yearly_lapse_reductions(self) -> None:
+        assert calculate_lapse_interval(365, 1) == 30
+        assert calculate_lapse_interval(365, 2) == 14
+        assert calculate_lapse_interval(365, 3) == 1
+
+    def test_slow_response_has_small_penalty(self) -> None:
+        assert apply_response_speed(365, 30_000) == 310
 
 
 class TestCalculateNewEase:
@@ -86,7 +97,7 @@ class TestCalculateNewDifficulty:
         assert result == 0.5
 
     def test_slow_good_increases_difficulty(self) -> None:
-        result = calculate_new_difficulty(0.5, ReviewRating.good, 12000, 0)
+        result = calculate_new_difficulty(0.5, ReviewRating.good, 20000, 0)
         assert result > 0.5
 
 

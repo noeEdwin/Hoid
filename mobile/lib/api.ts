@@ -357,6 +357,7 @@ export interface SyncPendingReviewItem {
   flashcard_id: string;
   is_correct: boolean;
   response_time_ms: number;
+  failure_count?: number;
   created_at?: string;
 }
 

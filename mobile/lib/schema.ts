@@ -51,6 +51,7 @@ export const pendingReview = sqliteTable("pending_review", {
     .references(() => flashcard.id),
   isCorrect: integer("is_correct", { mode: "boolean" }).notNull(),
   responseTimeMs: integer("response_time_ms").notNull(),
+  failureCount: integer("failure_count").notNull().default(0),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
 });
 

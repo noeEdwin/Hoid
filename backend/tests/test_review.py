@@ -40,9 +40,7 @@ class TestReviewQueue:
         })
         r = client.get(f"/api/decks/{deck.id}/review")
         queue = r.json()["queue"]
-        assert len(queue) == 2
-        assert queue[0]["answer"] == "朋友"
-        assert queue[1]["answer"] == "爱"
+        assert queue == []
 
     def test_respects_limit(self, client: TestClient, db_session: Session) -> None:
         deck = Deck(name="Limit Deck")
@@ -147,7 +145,9 @@ class TestSubmitReview:
         assert state is not None
         assert state.consecutive_failures == 0
 
-    def test_total_reviews_increments(self, client: TestClient, create_flashcard) -> None:
+    def test_total_reviews_increments(
+        self, client: TestClient, create_flashcard, db_session: Session
+    ) -> None:
         fc = create_flashcard()
         client.post(f"/api/flashcards/{fc.id}/review", json={
             "flashcard_id": str(fc.id),
@@ -159,10 +159,11 @@ class TestSubmitReview:
             "is_correct": True,
             "response_time_ms": 1000,
         })
-        r = client.get(f"/api/decks/{fc.deck_id}/review")
-        queue = r.json()["queue"]
-        assert len(queue) == 1
-        assert queue[0]["total_reviews"] == 2
+        state = db_session.exec(
+            select(UserVocabularyState).where(UserVocabularyState.flashcard_id == fc.id)
+        ).first()
+        assert state is not None
+        assert state.total_reviews == 2
 
     def test_mastery_tracking(
         self, client: TestClient, create_flashcard, db_session: Session

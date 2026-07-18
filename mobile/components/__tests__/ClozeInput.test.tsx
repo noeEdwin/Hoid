@@ -35,6 +35,87 @@ describe("ClozeInput", () => {
     expect(getByText("wǒ ___ nǐ")).toBeTruthy();
   });
 
+  it("hides repeated answers at every blank position", () => {
+    const { getByText } = render(
+      <ClozeInput
+        {...defaultProps}
+        sentence="我姐姐___聪明___漂亮。"
+        sentencePinyin="wǒ jiějie yòu cōngmíng yòu piàoliang"
+        answer="又"
+        answerPinyin="yòu"
+      />
+    );
+
+    expect(getByText("wǒ jiějie ___ cōngmíng ___ piàoliang")).toBeTruthy();
+  });
+
+  it("hides ellipsis-separated repeated answer pinyin", () => {
+    const { getByText } = render(
+      <ClozeInput
+        {...defaultProps}
+        sentence="我姐姐___聪明___漂亮。"
+        sentencePinyin="wǒ jiějie yòu cōngmíng yòu piàoliang"
+        answer="又...又..."
+        answerPinyin="yòu...yòu..."
+      />
+    );
+
+    expect(getByText("wǒ jiějie ___ cōngmíng ___ piàoliang")).toBeTruthy();
+  });
+
+  it("hides pinyin inside a combined number token", () => {
+    const { getByText } = render(
+      <ClozeInput
+        {...defaultProps}
+        sentence="这块手表三___块。"
+        sentencePinyin="zhè kuài shǒubiǎo sānqiān kuài."
+        answer="千"
+        answerPinyin="qiān"
+      />
+    );
+
+    expect(getByText("zhè kuài shǒubiǎo sān___ kuài.")).toBeTruthy();
+  });
+
+  it("reveals ordered answers in their corresponding blanks", () => {
+    const { getByText } = render(
+      <ClozeInput
+        {...defaultProps}
+        sentence="他回___家的时候，太太已经做___饭了。"
+        sentencePinyin="tā huí dào jiā de shíhou, tàitai yǐjīng zuò hǎo fàn le."
+        answer="到...好"
+        answerPinyin="dào...hǎo"
+        isResultVisible
+      />
+    );
+
+    expect(getByText("他回到")).toBeTruthy();
+    expect(getByText("家的时候，太太已经做好")).toBeTruthy();
+    expect(getByText("饭了。")).toBeTruthy();
+    expect(getByText("到 … 好")).toBeTruthy();
+  });
+
+  it("accepts Chinese punctuation between ordered answers", () => {
+    const onSubmit = jest.fn();
+    const { getByText, getByPlaceholderText } = render(
+      <ClozeInput
+        {...defaultProps}
+        sentence="他回___家的时候，太太已经做___饭了。"
+        answer="到...好"
+        answerPinyin="dào...hǎo"
+        onSubmit={onSubmit}
+      />
+    );
+
+    fireEvent.changeText(
+      getByPlaceholderText("Type the missing word in hanzi..."),
+      "到。。。好"
+    );
+    fireEvent.press(getByText("Submit"));
+
+    expect(onSubmit).toHaveBeenCalledWith(true);
+  });
+
   it("renders image when provided", () => {
     const { getByText } = render(
       <ClozeInput {...defaultProps} imagePath="❤️" />

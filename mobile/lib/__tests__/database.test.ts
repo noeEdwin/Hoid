@@ -86,7 +86,7 @@ describe("getDueCards", () => {
     expect(chain.innerJoin).toHaveBeenCalled();
     expect(chain.where).toHaveBeenCalled();
     expect(chain.orderBy).toHaveBeenCalled();
-    expect(chain.limit).toHaveBeenCalledWith(10);
+    expect(chain.limit).not.toHaveBeenCalled();
   });
 
   it("returns empty array for empty deck", () => {
@@ -134,6 +134,22 @@ describe("getDueCards", () => {
     expect(chain.where).toHaveBeenCalledWith(
       expect.objectContaining({ type: "and" })
     );
+  });
+
+  it("filters future cards before applying the result limit", () => {
+    const cards = [
+      { id: "future-1", difficultyScore: 1, nextReviewAt: "2026-07-20T00:00:00Z" },
+      { id: "future-2", difficultyScore: 0.9, nextReviewAt: "2026-07-19T00:00:00Z" },
+      { id: "due-1", difficultyScore: 0.8, nextReviewAt: null },
+      { id: "due-2", difficultyScore: 0.7, nextReviewAt: "2026-07-14T00:00:00Z" },
+    ];
+    const chain = setupMockChain(cards);
+    mockDb.select.mockReturnValue(chain);
+
+    const { getDueCards } = require("../database");
+    const result = getDueCards("deck-1", 2, [], "2026-07-15T00:00:00Z");
+
+    expect(result.map((card: { id: string }) => card.id)).toEqual(["due-1", "due-2"]);
   });
 });
 

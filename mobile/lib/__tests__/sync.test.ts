@@ -102,8 +102,27 @@ describe("performSync", () => {
     expect(result.status).toBe("success");
     expect(result.pushOk).toBe(true);
     expect(result.pullOk).toBe(true);
+    expect(result.nothingToSync).toBe(false);
+    expect(result.changesApplied).toBe(1);
     expect(result.processedPendingReviewIds).toEqual(["review-1"]);
     expect(mockClearPendingReviews).toHaveBeenCalledWith(["review-1"]);
+  });
+
+  it("returns a no-op success message when nothing changed", async () => {
+    mockPushSync.mockResolvedValue({
+      decks_upserted: 0,
+      flashcards_upserted: 0,
+      states_upserted: 0,
+      reviews_processed: 0,
+      processed_pending_review_ids: [],
+    });
+
+    const result = await performSync();
+
+    expect(result.status).toBe("success");
+    expect(result.nothingToSync).toBe(true);
+    expect(result.changesApplied).toBe(0);
+    expect(result.message).toBe("Nothing to sync");
   });
 
   it("returns partial when push fails and pull succeeds", async () => {
@@ -114,8 +133,9 @@ describe("performSync", () => {
     expect(result.status).toBe("partial");
     expect(result.pushOk).toBe(false);
     expect(result.pullOk).toBe(true);
+    expect(result.nothingToSync).toBe(false);
     expect(result.errorCode).toBe("timeout");
-    expect(result.message).toContain("上传超时");
+    expect(result.message).toContain("Upload timed out");
   });
 
   it("returns partial when push succeeds and pull fails", async () => {
@@ -133,8 +153,9 @@ describe("performSync", () => {
     expect(result.status).toBe("partial");
     expect(result.pushOk).toBe(true);
     expect(result.pullOk).toBe(false);
+    expect(result.nothingToSync).toBe(false);
     expect(result.errorCode).toBe("network");
-    expect(result.message).toContain("无法连接服务器");
+    expect(result.message).toContain("unable to connect to the server");
   });
 
   it("returns failure when push and pull fail", async () => {
@@ -146,9 +167,10 @@ describe("performSync", () => {
     expect(result.status).toBe("failure");
     expect(result.pushOk).toBe(false);
     expect(result.pullOk).toBe(false);
+    expect(result.nothingToSync).toBe(false);
     expect(result.errorCode).toBe("timeout");
     expect(result.failingStage).toBe("pull");
-    expect(result.message).toBe("下载超时（5秒）");
+    expect(result.message).toBe("Download timed out (5 seconds)");
   });
 });
 
@@ -222,7 +244,7 @@ describe("pullUpdates", () => {
       synced_at: "2026-07-08T21:30:00Z",
     });
 
-    await pullUpdates();
+    const result = await pullUpdates();
 
     expect(console.warn).not.toHaveBeenCalledWith(
       "[sync] skipping flashcard with missing deck:",
@@ -231,5 +253,17 @@ describe("pullUpdates", () => {
     );
     expect(flashcardInsertValues).toHaveBeenCalled();
     expect(insertRun).toHaveBeenCalled();
+    expect(result.flashcardsApplied).toBe(1);
+  });
+
+  it("reports no applied pull changes for an empty response", async () => {
+    const result = await pullUpdates();
+
+    expect(result).toEqual({
+      decksApplied: 0,
+      flashcardsApplied: 0,
+      statesApplied: 0,
+      syncedAt: "2026-01-01T00:00:00Z",
+    });
   });
 });
