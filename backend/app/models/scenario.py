@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, Index, Text, text
+from sqlalchemy import Column, DateTime, Text, text
 from sqlmodel import Field, SQLModel
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Scenario(SQLModel, table=True):
@@ -19,3 +23,9 @@ class Scenario(SQLModel, table=True):
     created_at: datetime = Field(
         sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")},
     )
+    updated_at: datetime = Field(
+        default_factory=_utcnow,
+        sa_column=Column(DateTime, nullable=False, onupdate=_utcnow),
+    )
+    archived_at: datetime | None = Field(default=None, sa_column=Column(DateTime))
+    seed_key: str | None = Field(default=None, sa_column=Column(Text, index=True))

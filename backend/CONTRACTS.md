@@ -491,7 +491,7 @@ Returns all backend data modified since the client's last sync timestamp.
 
 ### `GET /api/roleplay/scenarios`
 
-Returns all available pre-defined roleplay scenarios.
+Returns active scenarios only. Built-in and user-created scenarios have identical behavior.
 
 * **HTTP Method:** `GET`
 * **URL Endpoint:** `/api/roleplay/scenarios`
@@ -510,7 +510,10 @@ Returns all available pre-defined roleplay scenarios.
       "description": "你是一位咖啡店的店员，正在为客人点单。",
       "difficulty": "beginner",
       "target_grammar": ["咖啡", "要", "请"],
-      "example_prompt": "你好，欢迎光临！"
+      "example_prompt": "你好，欢迎光临！",
+      "created_at": "2026-07-19T10:00:00",
+      "updated_at": "2026-07-19T10:00:00",
+      "archived_at": null
     }
   ]
 }
@@ -518,14 +521,125 @@ Returns all available pre-defined roleplay scenarios.
 
 ---
 
+### `GET /api/roleplay/scenarios/{scenario_id}`
+
+Returns one active scenario using the same object shape as the list item above. Missing or archived scenarios return `404` with `{"detail":"Scenario not found"}`.
+
+---
+
+### `POST /api/roleplay/scenarios`
+
+Creates a scenario and returns the scenario object with `201 Created`.
+
+```json
+{
+  "title": "买火车票",
+  "description": "在车站购买车票并确认出发时间。",
+  "difficulty": "intermediate",
+  "target_grammar": ["车票", "出发", "几点"],
+  "example_prompt": "您好，请问您要去哪里？"
+}
+```
+
+`difficulty` must be `beginner`, `intermediate`, or `advanced`. `title` is 1-80 characters, `description` is 1-1000, and `example_prompt` is optional with a maximum of 300. `target_grammar` must contain 1-10 targets of at most 40 characters. Strings are trimmed; blank targets are removed and duplicates are removed in first-seen order. A normalized active-title collision returns `409`. An archived title may be reused.
+
+---
+
+### `PUT /api/roleplay/scenarios/{scenario_id}`
+
+Replaces all editable fields. The request and response match `POST /api/roleplay/scenarios`. Archived scenarios return `404`; normalized active-title collisions return `409`.
+
+---
+
+### `DELETE /api/roleplay/scenarios/{scenario_id}`
+
+Archives a scenario without deleting roleplay sessions or history. Archived scenarios disappear from list/detail and cannot be updated or archived again.
+
+```json
+{
+  "status": "archived",
+  "scenario_id": "444e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+---
+
+### `POST /api/roleplay/scenarios/recommendations`
+
+Returns up to five reviewed/difficult existing cards selected for an unsaved scenario and up to five new LLM suggestions. New suggestions exclude words already present in any flashcard. This endpoint never writes scenario, flashcard, or SRS data. If new suggestion generation fails, `suggested_new` is empty while valid existing-card recommendations are retained.
+
+```json
+{
+  "title": "买火车票",
+  "description": "在车站购买车票。",
+  "difficulty": "intermediate",
+  "selected_targets": ["出发"]
+}
+```
+
+`selected_targets` is optional and defaults to `[]`.
+
+```json
+{
+  "existing_cards": [
+    {
+      "flashcard_id": "123e4567-e89b-12d3-a456-426614174000",
+      "word": "车票",
+      "pinyin": "chē piào",
+      "sentence": "我想买一张___。",
+      "difficulty_score": 0.86
+    }
+  ],
+  "suggested_new": [
+    {
+      "word": "售票处",
+      "pinyin": "shòu piào chù",
+      "reason": "适合询问购票地点",
+      "suggested_structure": "去 + 售票处 + 买票"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/roleplay/scenarios/card-draft`
+
+Generates a validated cloze-card draft without writing to the database.
+
+```json
+{
+  "scenario_title": "买火车票",
+  "scenario_description": "在车站购买车票。",
+  "word": "车票",
+  "pinyin": "chē piào"
+}
+```
+
+`pinyin` is optional.
+
+```json
+{
+  "answer": "车票",
+  "answer_pinyin": "chē piào",
+  "sentence": "我想买一张___。",
+  "sentence_pinyin": "wǒ xiǎng mǎi yì zhāng chē piào",
+  "context": "在车站买票。",
+  "context_pinyin": "zài chē zhàn mǎi piào"
+}
+```
+
+The returned `answer` always matches the requested word and `sentence` contains exactly one literal `___` marker. Generation, JSON parsing, or validation failures return `502` with `{"detail":"Unable to generate a valid card draft"}`.
+
+---
+
 ## Module 6: Roleplay Engine (REST + WebSocket)
 
-### `POST /api/roleplay/start`
+Roleplay reads flashcard SRS state for targeting but never modifies it. Attempts, hints, outcomes, and production difficulty are stored in roleplay-owned tables.
 
-Starts a new roleplay session. Pulls high-difficulty tokens, selects scenario constraints, generates initial greeting.
+### `POST /api/roleplay/targets`
 
-* **HTTP Method:** `POST`
-* **URL Endpoint:** `/api/roleplay/start`
+Selects up to three scenario-relevant focus words. Eligible flashcards have at least one review and either `difficulty_score >= 0.5` or `consecutive_failures > 0`. Any remaining slots are filled from the scenario's target words.
 
 **Request Body**
 
@@ -539,15 +653,67 @@ Starts a new roleplay session. Pulls high-difficulty tokens, selects scenario co
 
 ```json
 {
+  "focus_words": [
+    {
+      "flashcard_id": "123e4567-e89b-12d3-a456-426614174000",
+      "word": "咖啡",
+      "pinyin": "kā fēi",
+      "sentence": "我想喝___。",
+      "source": "flashcard"
+    },
+    {
+      "flashcard_id": null,
+      "word": "请",
+      "pinyin": null,
+      "sentence": null,
+      "source": "scenario"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/roleplay/start`
+
+Starts a new roleplay session. Pulls high-difficulty tokens, selects scenario constraints, generates initial greeting.
+
+* **HTTP Method:** `POST`
+* **URL Endpoint:** `/api/roleplay/start`
+
+**Request Body**
+
+```json
+{
+  "scenario_id": "444e4567-e89b-12d3-a456-426614174000",
+  "target_flashcard_ids": ["123e4567-e89b-12d3-a456-426614174000"],
+  "scenario_target_words": ["请"]
+}
+```
+
+`target_flashcard_ids` and `scenario_target_words` are optional arrays with at most three entries each. Omit both for server-side selection. Flashcard IDs must satisfy roleplay eligibility; scenario words must occur in the selected scenario's `target_grammar`, otherwise the server returns `422`.
+
+**Response Body (200 OK)**
+
+```json
+{
   "session_id": "987fcdeb-51a2-43d7-9012-345678901234",
-  "websocket_url": "ws://localhost:8000/api/roleplay/stream/987fcdeb-51a2-43d7-9012-345678901234",
+  "websocket_url": "ws://192.168.3.11:8000/api/roleplay/stream/987fcdeb-51a2-43d7-9012-345678901234",
   "scenario": {
+    "id": "444e4567-e89b-12d3-a456-426614174000",
     "title": "在咖啡店",
-    "difficulty": "beginner"
+    "description": "你在咖啡店点饮料，店员会询问杯型、温度和其他偏好。",
+    "difficulty": "beginner",
+    "target_grammar": ["咖啡", "要", "请"],
+    "example_prompt": "你好，欢迎光临！",
+    "created_at": "2026-07-19T10:00:00",
+    "updated_at": "2026-07-19T10:00:00",
+    "archived_at": null
   },
   "forced_tokens": ["咖啡", "要", "请"],
   "initial_greeting": {
     "text": "你好！欢迎光临。这是菜单，你想吃点什么？",
+    "pinyin": "nǐ hǎo! huān yíng guāng lín...",
     "audio_b64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA..."
   }
 }
@@ -557,14 +723,15 @@ Starts a new roleplay session. Pulls high-difficulty tokens, selects scenario co
 
 ### `WS /api/roleplay/stream/{session_id}`
 
-Real-time bidirectional conversational tunnel for an active roleplay session.
+Bidirectional, utterance-based conversational tunnel for an active roleplay session. The client sends one complete recording per turn; incremental audio streaming is not currently supported.
 
 **Inbound Events (Client → Server)**
 
 ```json
 {
   "event_type": "user_speech",
-  "audio_chunk_b64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA..."
+  "audio_chunk_b64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA...",
+  "audio_mime_type": "audio/mp4"
 }
 ```
 
@@ -588,6 +755,7 @@ Real-time bidirectional conversational tunnel for an active roleplay session.
     }
   ],
   "ai_text_reply": "好的，给你菜单。",
+  "ai_pinyin": "hǎo de, gěi nǐ cài dān.",
   "ai_audio_b64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA...",
   "difficulty_adjusted": null
 }
@@ -596,8 +764,17 @@ Real-time bidirectional conversational tunnel for an active roleplay session.
 ```json
 {
   "event_type": "hint_response",
-  "hint_text": "Try using 把 to move the object.",
-  "suggested_structure": "把 + object + verb + complement"
+  "hint_text": "试试使用“把”来造句。",
+  "suggested_structure": "把 + 宾语 + 动词 + 补语"
+}
+```
+
+```json
+{
+  "event_type": "error",
+  "message": "没有听清楚，请再说一次。",
+  "recoverable": true,
+  "error_code": "INVALID_AUDIO"
 }
 ```
 
@@ -605,7 +782,7 @@ Real-time bidirectional conversational tunnel for an active roleplay session.
 
 ### `POST /api/roleplay/end`
 
-Closes the session, commits batched analytics to DB, frees resources.
+Closes the session, records its end time, returns the target summary, and frees in-memory resources.
 
 * **HTTP Method:** `POST`
 * **URL Endpoint:** `/api/roleplay/end`
@@ -623,15 +800,28 @@ Closes the session, commits batched analytics to DB, frees resources.
 ```json
 {
   "status": "success",
-  "message": "Session closed. 4 turns logged, 2 turns evaluated.",
+  "message": "Session closed. 4 turns logged.",
   "session_summary": {
     "total_turns": 4,
     "tokens_forced": ["咖啡", "要", "请"],
     "tokens_passed": ["要", "请"],
-    "tokens_failed": ["咖啡"]
+    "tokens_failed": ["咖啡"],
+    "targets": [
+      {
+        "id": "777e4567-e89b-12d3-a456-426614174000",
+        "flashcard_id": "123e4567-e89b-12d3-a456-426614174000",
+        "word": "咖啡",
+        "source": "flashcard",
+        "status": "failed",
+        "attempts": 3,
+        "hints_used": 1
+      }
+    ]
   }
 }
 ```
+
+Target statuses are `passed`, `failed`, or `unattempted` after end. A pending target with attempts becomes `failed`; a pending target with no attempts becomes `unattempted`. `tokens_forced`, `tokens_passed`, and `tokens_failed` remain for compatibility.
 
 ---
 

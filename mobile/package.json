@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "babel-preset-expo": "^56.0.15",
     "drizzle-orm": "^0.45.2",
     "expo": "~56.0.12",

@@ -35,7 +35,7 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     from app.main import app
 
     app.dependency_overrides[get_session] = _override_session
-    with patch("app.main._seed_scenarios"):
+    with patch("app.main.init_db"), patch("app.main._seed_scenarios"):
         with TestClient(app) as c:
             yield c
     app.dependency_overrides.clear()

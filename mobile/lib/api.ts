@@ -11,13 +11,21 @@ export class ApiError extends Error {
   code: ApiErrorCode;
   status?: number;
   url: string;
+  detail?: string;
 
-  constructor(message: string, code: ApiErrorCode, status?: number, url: string = EFFECTIVE_API_BASE) {
+  constructor(
+    message: string,
+    code: ApiErrorCode,
+    status?: number,
+    url: string = EFFECTIVE_API_BASE,
+    detail?: string
+  ) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
     this.url = url;
+    this.detail = detail;
   }
 }
 
@@ -101,6 +109,93 @@ export interface ApiSrsHealth {
   recently_reviewed: ApiSrsHealthCard[];
 }
 
+export type RoleplayDifficulty = "beginner" | "intermediate" | "advanced";
+
+export interface ApiRoleplayScenario {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: RoleplayDifficulty;
+  target_grammar: string[];
+  example_prompt: string | null;
+  updated_at?: string;
+}
+
+export interface RoleplayScenarioInput {
+  title: string;
+  description: string;
+  difficulty: RoleplayDifficulty;
+  target_grammar: string[];
+  example_prompt: string | null;
+}
+
+export interface ApiScenarioExistingCard {
+  flashcard_id: string;
+  word: string;
+  pinyin: string | null;
+  sentence: string | null;
+  difficulty_score: number;
+}
+
+export interface ApiScenarioSuggestion {
+  word: string;
+  pinyin: string;
+  reason: string;
+  suggested_structure: string;
+}
+
+export interface ApiScenarioRecommendations {
+  existing_cards: ApiScenarioExistingCard[];
+  suggested_new: ApiScenarioSuggestion[];
+}
+
+export interface ApiFlashcardDraft {
+  answer: string;
+  answer_pinyin: string;
+  sentence: string;
+  sentence_pinyin: string;
+  context: string;
+  context_pinyin: string;
+}
+
+export type RoleplayFocusWordSource = "flashcard" | "scenario";
+
+export interface ApiRoleplayFocusWord {
+  flashcard_id: string | null;
+  word: string;
+  pinyin: string | null;
+  sentence: string | null;
+  source: RoleplayFocusWordSource;
+}
+
+export interface ApiRoleplayStartResponse {
+  session_id: string;
+  websocket_url: string;
+  scenario: ApiRoleplayScenario;
+  forced_tokens: string[];
+  initial_greeting: {
+    text: string;
+    pinyin: string;
+    audio_b64: string;
+  };
+}
+
+export interface ApiRoleplaySummary {
+  total_turns: number;
+  tokens_forced: string[];
+  tokens_passed: string[];
+  tokens_failed: string[];
+  targets?: Array<{
+    id: string;
+    flashcard_id: string | null;
+    word: string;
+    source: RoleplayFocusWordSource;
+    status: "pending" | "passed" | "failed" | "unattempted";
+    attempts: number;
+    hints_used: number;
+  }>;
+}
+
 async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> {
   const controller = new AbortController();
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -128,7 +223,7 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
       responseJson = await res.json();
     }
     if (!res.ok) {
-      const detail = (responseText ?? formatResponseBody(responseJson))
+      const detail = (formatApiDetail(responseJson) || (responseText ?? formatResponseBody(responseJson)))
         .trim()
         .replace(/\s+/g, " ")
         .slice(0, 300);
@@ -136,7 +231,8 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
         `API error: ${res.status}${detail ? `: ${detail}` : ""}`,
         "http",
         res.status,
-        url
+        url,
+        detail
       );
     }
     if (responseJson !== undefined) {
@@ -180,6 +276,22 @@ function formatResponseBody(body: unknown): string {
   } catch {
     return String(body);
   }
+}
+
+function formatApiDetail(body: unknown): string {
+  if (!body || typeof body !== "object" || !("detail" in body)) return "";
+  const detail = (body as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return "";
+  return detail
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const entry = item as { loc?: unknown; msg?: unknown };
+      const field = Array.isArray(entry.loc) ? entry.loc.at(-1) : undefined;
+      if (typeof entry.msg !== "string") return [];
+      return [`${typeof field === "string" ? `${field}: ` : ""}${entry.msg}`];
+    })
+    .join("; ");
 }
 
 export async function fetchDecks(): Promise<ApiDeck[]> {
@@ -239,6 +351,114 @@ export async function fetchDifficultTokens(
 
 export async function fetchSrsHealth(): Promise<ApiSrsHealth> {
   return apiFetch<ApiSrsHealth>("/api/vocabulary/srs-health");
+}
+
+export async function fetchRoleplayScenarios(): Promise<ApiRoleplayScenario[]> {
+  const data = await apiFetch<{ scenarios: ApiRoleplayScenario[] }>(
+    "/api/roleplay/scenarios",
+    { timeoutMs: 10000 }
+  );
+  return data.scenarios;
+}
+
+export async function createRoleplayScenario(
+  input: RoleplayScenarioInput
+): Promise<ApiRoleplayScenario> {
+  return apiFetch<ApiRoleplayScenario>("/api/roleplay/scenarios", {
+    method: "POST",
+    body: JSON.stringify(input),
+    timeoutMs: 10000,
+  });
+}
+
+export async function updateRoleplayScenario(
+  scenarioId: string,
+  input: RoleplayScenarioInput
+): Promise<ApiRoleplayScenario> {
+  return apiFetch<ApiRoleplayScenario>(`/api/roleplay/scenarios/${scenarioId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+    timeoutMs: 10000,
+  });
+}
+
+export async function archiveRoleplayScenario(
+  scenarioId: string
+): Promise<{ status: "archived"; scenario_id: string }> {
+  return apiFetch<{ status: "archived"; scenario_id: string }>(
+    `/api/roleplay/scenarios/${scenarioId}`,
+    { method: "DELETE", timeoutMs: 10000 }
+  );
+}
+
+export async function fetchScenarioRecommendations(input: {
+  title: string;
+  description: string;
+  difficulty: RoleplayDifficulty;
+  selected_targets: string[];
+}): Promise<ApiScenarioRecommendations> {
+  return apiFetch<ApiScenarioRecommendations>(
+    "/api/roleplay/scenarios/recommendations",
+    { method: "POST", body: JSON.stringify(input), timeoutMs: 30000 }
+  );
+}
+
+export async function generateScenarioCardDraft(input: {
+  scenario_title: string;
+  scenario_description: string;
+  word: string;
+  pinyin: string;
+}): Promise<ApiFlashcardDraft> {
+  return apiFetch<ApiFlashcardDraft>("/api/roleplay/scenarios/card-draft", {
+    method: "POST",
+    body: JSON.stringify(input),
+    timeoutMs: 30000,
+  });
+}
+
+export async function prepareRoleplayTargets(
+  scenarioId: string
+): Promise<ApiRoleplayFocusWord[]> {
+  const data = await apiFetch<{ focus_words: ApiRoleplayFocusWord[] }>(
+    "/api/roleplay/targets",
+    {
+      method: "POST",
+      body: JSON.stringify({ scenario_id: scenarioId }),
+      timeoutMs: 30000,
+    }
+  );
+  return data.focus_words;
+}
+
+export async function startRoleplaySession(
+  scenarioId: string,
+  targetFlashcardIds: string[] = [],
+  scenarioTargetWords: string[] = []
+): Promise<ApiRoleplayStartResponse> {
+  return apiFetch<ApiRoleplayStartResponse>("/api/roleplay/start", {
+    method: "POST",
+    body: JSON.stringify({
+      scenario_id: scenarioId,
+      target_flashcard_ids: targetFlashcardIds,
+      scenario_target_words: scenarioTargetWords,
+    }),
+    timeoutMs: 30000,
+  });
+}
+
+export async function endRoleplaySession(
+  sessionId: string
+): Promise<ApiRoleplaySummary> {
+  const data = await apiFetch<{
+    status: string;
+    message: string;
+    session_summary: ApiRoleplaySummary;
+  }>("/api/roleplay/end", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId }),
+    timeoutMs: 10000,
+  });
+  return data.session_summary;
 }
 
 export async function createDeckApi(

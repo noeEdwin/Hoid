@@ -33,6 +33,7 @@ export default {
       bundleIdentifier: getAppBundleId(),
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        NSMicrophoneUsageDescription: "Tars uses the microphone for spoken roleplay practice.",
       },
     },
     android: {

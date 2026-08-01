@@ -27,9 +27,9 @@ def _get_client() -> AsyncOpenAI:
     return _client
 
 
-async def transcribe_audio(audio_bytes: bytes) -> str:
+async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.wav") -> str:
     audio_file = io.BytesIO(audio_bytes)
-    audio_file.name = "audio.wav"
+    audio_file.name = filename
 
     last_error: Exception | None = None
     for attempt in range(MAX_RETRIES):

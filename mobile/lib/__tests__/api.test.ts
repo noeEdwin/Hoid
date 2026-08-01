@@ -15,6 +15,13 @@ import {
   createFlashcardApi,
   updateFlashcardApi,
   deleteFlashcardApi,
+  prepareRoleplayTargets,
+  startRoleplaySession,
+  archiveRoleplayScenario,
+  createRoleplayScenario,
+  fetchScenarioRecommendations,
+  generateScenarioCardDraft,
+  updateRoleplayScenario,
 } from "../api";
 
 beforeEach(() => {
@@ -205,6 +212,103 @@ describe("fetchDifficultTokens", () => {
   });
 });
 
+describe("roleplay target preparation", () => {
+  it("requests focus words for the selected scenario", async () => {
+    const focusWords = [
+      {
+        flashcard_id: "f1",
+        word: "菜单",
+        pinyin: "cài dān",
+        sentence: "请给我菜单。",
+        source: "flashcard",
+      },
+    ];
+    mockJsonResponse({ focus_words: focusWords });
+
+    await expect(prepareRoleplayTargets("scenario-1")).resolves.toEqual(focusWords);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/targets",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ scenario_id: "scenario-1" }),
+      })
+    );
+  });
+
+  it("starts with prepared flashcard IDs and scenario words", async () => {
+    mockJsonResponse({ session_id: "session-1" });
+
+    await startRoleplaySession("scenario-1", ["f1"], ["买单"]);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/start",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          scenario_id: "scenario-1",
+          target_flashcard_ids: ["f1"],
+          scenario_target_words: ["买单"],
+        }),
+      })
+    );
+  });
+});
+
+describe("scenario management", () => {
+  const input = {
+    title: "在花店买花",
+    description: "向店员买花",
+    difficulty: "beginner" as const,
+    target_grammar: ["想要"],
+    example_prompt: null,
+  };
+
+  it("creates and updates scenarios with full input", async () => {
+    mockJsonResponse({ id: "s1", ...input });
+    await createRoleplayScenario(input);
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/scenarios",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(input) })
+    );
+
+    mockJsonResponse({ id: "s1", ...input, title: "在花市买花" });
+    await updateRoleplayScenario("s1", { ...input, title: "在花市买花" });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/scenarios/s1",
+      expect.objectContaining({ method: "PUT" })
+    );
+  });
+
+  it("archives a scenario", async () => {
+    mockJsonResponse({ status: "archived", scenario_id: "s1" });
+    await expect(archiveRoleplayScenario("s1")).resolves.toEqual({ status: "archived", scenario_id: "s1" });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/scenarios/s1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  it("requests recommendations without persisting card IDs", async () => {
+    mockJsonResponse({ existing_cards: [], suggested_new: [] });
+    const request = { title: input.title, description: input.description, difficulty: input.difficulty, selected_targets: ["想要"] };
+    await fetchScenarioRecommendations(request);
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/scenarios/recommendations",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(request) })
+    );
+  });
+
+  it("generates a flashcard draft", async () => {
+    mockJsonResponse({ answer: "鲜花", sentence: "我想买___。" });
+    const request = { scenario_title: input.title, scenario_description: input.description, word: "鲜花", pinyin: "xiān huā" };
+    await generateScenarioCardDraft(request);
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "http://192.168.3.11:8000/api/roleplay/scenarios/card-draft",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(request) })
+    );
+  });
+});
+
 describe("error handling", () => {
   it("network error propagates", async () => {
     mockNetworkError();
@@ -220,6 +324,29 @@ describe("error handling", () => {
     await expect(submitReview("f1", true, 1000)).rejects.toMatchObject({
       code: "http",
       status: 422,
+    } satisfies Partial<ApiError>);
+  });
+
+  it("HTTP validation errors expose the failing field", async () => {
+    mockJsonResponse({
+      detail: [
+        {
+          loc: ["body", "description"],
+          msg: "String should have at most 1000 characters",
+          type: "string_too_long",
+        },
+      ],
+    }, false, 422);
+
+    await expect(fetchScenarioRecommendations({
+      title: "花店",
+      description: "说明",
+      difficulty: "beginner",
+      selected_targets: [],
+    })).rejects.toMatchObject({
+      code: "http",
+      status: 422,
+      detail: "description: String should have at most 1000 characters",
     } satisfies Partial<ApiError>);
   });
 

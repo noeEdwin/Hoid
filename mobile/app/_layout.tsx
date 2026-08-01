@@ -32,6 +32,21 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="roleplay/index"
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+          }}
+        />
+        <Stack.Screen
+          name="roleplay/session"
+          options={{
+            headerShown: false,
+            animation: "fade",
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
           name="modal/create-deck"
           options={{
             presentation: "modal",
@@ -46,6 +61,14 @@ export default function RootLayout() {
             headerShown: false,
             animation: "slide_from_bottom",
           }}
+        />
+        <Stack.Screen
+          name="modal/scenario-form"
+          options={{ presentation: "modal", headerShown: false, animation: "slide_from_bottom" }}
+        />
+        <Stack.Screen
+          name="modal/scenario-card-draft"
+          options={{ presentation: "modal", headerShown: false, animation: "slide_from_bottom" }}
         />
       </Stack>
     </>
