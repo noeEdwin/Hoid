@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.main import _reject_direct_remote_bind
 
 
 def test_default_backend_bind_is_loopback() -> None:
@@ -17,6 +20,35 @@ def test_default_backend_bind_is_loopback() -> None:
 def test_remote_backend_bind_is_rejected(host: str) -> None:
     with pytest.raises(ValueError, match="remote binds are disabled"):
         Settings(_env_file=None, HOST=host)
+
+
+def test_development_lan_bind_requires_explicit_opt_in() -> None:
+    config = Settings(_env_file=None, HOST="192.168.3.11", ALLOW_LAN=True)
+
+    assert config.HOST == "192.168.3.11"
+
+
+def test_production_lan_bind_is_rejected() -> None:
+    with pytest.raises(ValueError, match="ALLOW_LAN=true in development"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            HOST="192.168.3.11",
+            ALLOW_LAN=True,
+        )
+
+
+@pytest.mark.parametrize("host_argument", ["--host", "--host=0.0.0.0"])
+def test_direct_uvicorn_remote_bind_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, host_argument: str
+) -> None:
+    argv = ["uvicorn", "app.main:app", host_argument]
+    if host_argument == "--host":
+        argv.append("0.0.0.0")
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(RuntimeError, match="remote uvicorn binds are disabled"):
+        _reject_direct_remote_bind()
 
 
 def test_localhost_bind_is_allowed() -> None:

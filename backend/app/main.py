@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -15,6 +16,29 @@ from app.services.scenarios import encode_targets, normalize_title
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _reject_direct_remote_bind() -> None:
+    host_argument = next(
+        (argument for argument in sys.argv if argument.startswith("--host=")),
+        None,
+    )
+    if host_argument is not None:
+        host = host_argument.split("=", 1)[1]
+    elif "--host" in sys.argv:
+        host_index = sys.argv.index("--host")
+        if host_index + 1 >= len(sys.argv):
+            return
+        host = sys.argv[host_index + 1]
+    else:
+        return
+    if host.strip().lower() not in {"localhost", "127.0.0.1", "::1"}:
+        raise RuntimeError(
+            "remote uvicorn binds are disabled; use `python run.py --lan` for development LAN mode"
+        )
+
+
+_reject_direct_remote_bind()
 
 
 def _seed_scenarios() -> None:

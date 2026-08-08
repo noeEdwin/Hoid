@@ -93,8 +93,9 @@ tars/
 - **Last-write-wins conflict resolution** - based on `updated_at` timestamp
 - **Sync timing**: on session end + on app open
 - **Pending reviews queue** - offline writes stored locally, pushed to backend on next sync
-- Mobile development may configure an explicit backend URL, but the supported
-  backend server is loopback-only in this phase. Remote/LAN access requires a
+- Mobile development may configure an explicit backend URL. The backend is
+  loopback-only by default; physical-device development requires the explicit
+  development-only `python run.py --lan` mode. Remote access requires a
   separate private authenticated infrastructure task.
 
 ### Offline Strategy

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings
 
@@ -11,7 +12,9 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 class Settings(BaseSettings):
     APP_NAME: str = "Tars Backend"
     DEBUG: bool = False
+    ENVIRONMENT: Literal["development", "production"] = "development"
     HOST: str = "127.0.0.1"
+    ALLOW_LAN: bool = False
     PORT: int = 8000
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
@@ -43,18 +46,23 @@ class Settings(BaseSettings):
     model_config = {"env_file": str(_PROJECT_ROOT / ".env"), "env_file_encoding": "utf-8"}
 
     def model_post_init(self, __context: object) -> None:
-        host = self.HOST.strip().lower()
-        if host == "localhost":
+        self.validate_host(self.HOST)
+
+    def validate_host(self, host: str) -> None:
+        normalized_host = host.strip().lower()
+        if normalized_host == "localhost":
             return
         try:
-            address = ipaddress.ip_address(host)
+            address = ipaddress.ip_address(normalized_host)
         except ValueError as exc:
             raise ValueError(
                 "HOST must be localhost or a loopback IP; remote binds are disabled"
             ) from exc
-        if not address.is_loopback:
+        if address.is_loopback:
+            return
+        if self.ENVIRONMENT != "development" or not self.ALLOW_LAN:
             raise ValueError(
-                "HOST must be localhost or a loopback IP; remote binds are disabled"
+                "remote binds are disabled unless ALLOW_LAN=true in development"
             )
 
 
