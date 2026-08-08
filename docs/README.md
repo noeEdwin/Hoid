@@ -55,9 +55,13 @@ uv sync
 # Copy env and add your API keys
 cp backend/.env.example .env
 
-# Run the server
-cd backend && uv run uvicorn app.main:app --reload
+# Run the local-only server (loopback only)
+cd backend && uv run python run.py --reload
 ```
+
+The backend intentionally binds to `127.0.0.1` and rejects non-loopback
+`HOST` values. Remote or LAN access is not supported in this phase; private
+authenticated infrastructure is deferred to a separate task.
 
 ### Mobile
 

@@ -335,8 +335,12 @@ cp backend/.env.example .env
 Add API keys to `.env` when testing AI features. Then run from `backend/` because the default SQLite path is working-directory-sensitive:
 
 ```bash
-uv run uvicorn app.main:app --reload --host 0.0.0.0
+uv run python run.py --reload
 ```
+
+The backend is local-only in this phase: it binds to `127.0.0.1` by default
+and rejects non-loopback `HOST` values. Remote or LAN access, including the
+required private authenticated infrastructure, is deferred to a separate task.
 
 Useful endpoints:
 
@@ -356,8 +360,11 @@ From `mobile/`:
 
 ```bash
 npm install
-EXPO_PUBLIC_API_URL=http://YOUR_BACKEND_IP:8000 npm start
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npm start
 ```
+
+Physical-device or LAN backend access is not supported by the local-only
+server boundary in this phase.
 
 Run mobile tests:
 
