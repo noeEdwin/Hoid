@@ -21,6 +21,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.lan:
         os.environ["ALLOW_LAN"] = "true"
+        os.environ["TARS_STARTUP_MODE"] = "lan"
 
     from app.core.config import settings
 

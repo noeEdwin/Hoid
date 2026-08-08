@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -19,6 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 def _reject_direct_remote_bind() -> None:
+    configured_host = os.environ.get("UVICORN_HOST")
+    if configured_host is not None and configured_host.strip().lower() not in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }:
+        raise RuntimeError(
+            "remote uvicorn binds are disabled; use `python run.py --lan` for development LAN mode"
+        )
     host_argument = next(
         (argument for argument in sys.argv if argument.startswith("--host=")),
         None,
