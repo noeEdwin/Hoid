@@ -339,9 +339,8 @@ uv run python run.py --reload
 ```
 
 The backend is local-only in this phase: it binds to `127.0.0.1` by default
-and rejects non-loopback `HOST` values unless explicit development LAN mode is
-selected. Remote access and private authenticated infrastructure are deferred
-to a separate task.
+and rejects all non-loopback `HOST` values. Remote access and private
+authenticated infrastructure are deferred to a separate task.
 
 Useful endpoints:
 
@@ -364,16 +363,8 @@ npm install
 EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npm start
 ```
 
-For physical-device development, keep the existing `192.168.3.11` URL and
-start the backend explicitly in development LAN mode:
-
-```bash
-HOST=192.168.3.11 uv run python run.py --lan --reload
-EXPO_PUBLIC_API_URL=http://192.168.3.11:8000 npm start
-```
-
-LAN mode is rejected when `ENVIRONMENT=production`; it is not a general remote
-access path.
+Physical-device backend access is deferred until private authenticated
+infrastructure is implemented.
 
 Run mobile tests:
 

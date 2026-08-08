@@ -60,9 +60,8 @@ cd backend && uv run python run.py --reload
 ```
 
 The backend intentionally binds to `127.0.0.1` and rejects non-loopback
-`HOST` values by default. Physical-device development requires the explicit
-development-only `python run.py --lan` mode; production rejects LAN binds.
-Private authenticated infrastructure is deferred to a separate task.
+`HOST` values. Physical-device access is deferred until private authenticated
+infrastructure is implemented in a separate task.
 
 ### Mobile
 

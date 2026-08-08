@@ -18,33 +18,22 @@ def test_default_backend_bind_is_loopback() -> None:
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.10", "example.test"])
 def test_remote_backend_bind_is_rejected(host: str) -> None:
-    with pytest.raises(ValueError, match="run.py --lan|remote binds are disabled"):
+    with pytest.raises(ValueError, match="remote binds are disabled"):
         Settings(_env_file=None, HOST=host)
 
 
-def test_development_lan_bind_requires_explicit_opt_in(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("TARS_STARTUP_MODE", "lan")
-    monkeypatch.setattr(sys, "argv", ["run.py", "--lan"])
-    config = Settings(_env_file=None, HOST="192.168.3.11", ALLOW_LAN=True)
-
-    assert config.HOST == "192.168.3.11"
+def test_development_lan_bind_is_rejected() -> None:
+    with pytest.raises(ValueError, match="remote binds are disabled"):
+        Settings(_env_file=None, HOST="192.168.3.11")
 
 
 def test_production_lan_bind_is_rejected() -> None:
-    with pytest.raises(ValueError, match="run.py --lan"):
+    with pytest.raises(ValueError, match="remote binds are disabled"):
         Settings(
             _env_file=None,
             ENVIRONMENT="production",
             HOST="192.168.3.11",
-            ALLOW_LAN=True,
         )
-
-
-def test_allow_lan_without_wrapper_mode_is_rejected() -> None:
-    with pytest.raises(ValueError, match="ALLOW_LAN=true requires"):
-        Settings(_env_file=None, HOST="192.168.3.11", ALLOW_LAN=True)
 
 
 @pytest.mark.parametrize("host_argument", ["--host", "--host=0.0.0.0"])

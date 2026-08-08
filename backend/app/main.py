@@ -27,7 +27,7 @@ def _reject_direct_remote_bind() -> None:
         "::1",
     }:
         raise RuntimeError(
-            "remote uvicorn binds are disabled; use `python run.py --lan` for development LAN mode"
+            "remote uvicorn binds are disabled; use a loopback host"
         )
     host_argument = next(
         (argument for argument in sys.argv if argument.startswith("--host=")),
@@ -44,7 +44,7 @@ def _reject_direct_remote_bind() -> None:
         return
     if host.strip().lower() not in {"localhost", "127.0.0.1", "::1"}:
         raise RuntimeError(
-            "remote uvicorn binds are disabled; use `python run.py --lan` for development LAN mode"
+            "remote uvicorn binds are disabled; use a loopback host"
         )
 
 

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import ipaddress
-import os
-import sys
 from pathlib import Path
 from typing import Literal
 
@@ -16,7 +14,6 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "production"] = "development"
     HOST: str = "127.0.0.1"
-    ALLOW_LAN: bool = False
     PORT: int = 8000
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
@@ -52,13 +49,6 @@ class Settings(BaseSettings):
 
     def validate_host(self, host: str) -> None:
         normalized_host = host.strip().lower()
-        lan_mode = (
-            os.environ.get("TARS_STARTUP_MODE") == "lan" and "--lan" in sys.argv
-        )
-        if self.ALLOW_LAN and not lan_mode:
-            raise ValueError("ALLOW_LAN=true requires `python run.py --lan`")
-        if lan_mode and self.ENVIRONMENT != "development":
-            raise ValueError("LAN mode is only available in development")
         if normalized_host == "localhost":
             return
         try:
@@ -69,10 +59,7 @@ class Settings(BaseSettings):
             ) from exc
         if address.is_loopback:
             return
-        if self.ENVIRONMENT != "development" or not lan_mode:
-            raise ValueError(
-                "remote binds require `python run.py --lan` in development"
-            )
+        raise ValueError("HOST must be localhost or a loopback IP; remote binds are disabled")
 
 
 settings = Settings()
