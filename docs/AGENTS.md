@@ -93,7 +93,9 @@ tars/
 - **Last-write-wins conflict resolution** - based on `updated_at` timestamp
 - **Sync timing**: on session end + on app open
 - **Pending reviews queue** - offline writes stored locally, pushed to backend on next sync
-- Mobile IP hardcoded: `http://192.168.3.11:8000` (personal use)
+- Mobile development may configure an explicit backend URL. See
+  [README.md](README.md#backend-setup) for the backend's local-only boundary
+  and deferred physical-device access.
 
 ### Offline Strategy
 - Flashcards fully functional offline (local SQLite)
@@ -547,7 +549,8 @@ sequenceDiagram
 ### Backend (Python + uv)
 - Initialize virtual environment: `uv venv`
 - Install dependencies: `uv sync`
-- Run local server: `uv run uvicorn app.main:app --reload`
+- Run local server: `cd backend && uv run python run.py --reload`; see
+  [README.md](README.md#backend-setup) for the local-only boundary.
 - Run backend tests: `uv run pytest`
 
 ### Mobile (React Native + Expo)

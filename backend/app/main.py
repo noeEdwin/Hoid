@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -15,6 +17,38 @@ from app.services.scenarios import encode_targets, normalize_title
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _reject_direct_remote_bind() -> None:
+    configured_host = os.environ.get("UVICORN_HOST")
+    if configured_host is not None and configured_host.strip().lower() not in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }:
+        raise RuntimeError(
+            "remote uvicorn binds are disabled; use a loopback host"
+        )
+    host_argument = next(
+        (argument for argument in sys.argv if argument.startswith("--host=")),
+        None,
+    )
+    if host_argument is not None:
+        host = host_argument.split("=", 1)[1]
+    elif "--host" in sys.argv:
+        host_index = sys.argv.index("--host")
+        if host_index + 1 >= len(sys.argv):
+            return
+        host = sys.argv[host_index + 1]
+    else:
+        return
+    if host.strip().lower() not in {"localhost", "127.0.0.1", "::1"}:
+        raise RuntimeError(
+            "remote uvicorn binds are disabled; use a loopback host"
+        )
+
+
+_reject_direct_remote_bind()
 
 
 def _seed_scenarios() -> None:
@@ -99,10 +133,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type"],
 )
 
 app.include_router(flashcards.router, prefix="/api")

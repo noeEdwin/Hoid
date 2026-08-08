@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ipaddress
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings
 
@@ -10,6 +12,19 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 class Settings(BaseSettings):
     APP_NAME: str = "Tars Backend"
     DEBUG: bool = False
+    ENVIRONMENT: Literal["development", "production"] = "development"
+    HOST: str = "127.0.0.1"
+    PORT: int = 8000
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8081",
+        "http://localhost:19006",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:19006",
+    ]
 
     DATABASE_URL: str = "sqlite:///./tars.db"
     SRS_TIMEZONE: str = "America/Chicago"
@@ -28,6 +43,23 @@ class Settings(BaseSettings):
     BASE_DIR: Path = _PROJECT_ROOT
 
     model_config = {"env_file": str(_PROJECT_ROOT / ".env"), "env_file_encoding": "utf-8"}
+
+    def model_post_init(self, __context: object) -> None:
+        self.validate_host(self.HOST)
+
+    def validate_host(self, host: str) -> None:
+        normalized_host = host.strip().lower()
+        if normalized_host == "localhost":
+            return
+        try:
+            address = ipaddress.ip_address(normalized_host)
+        except ValueError as exc:
+            raise ValueError(
+                "HOST must be localhost or a loopback IP; remote binds are disabled"
+            ) from exc
+        if address.is_loopback:
+            return
+        raise ValueError("HOST must be localhost or a loopback IP; remote binds are disabled")
 
 
 settings = Settings()
