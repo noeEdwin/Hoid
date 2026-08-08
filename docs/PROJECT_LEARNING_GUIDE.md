@@ -338,9 +338,8 @@ Add API keys to `.env` when testing AI features. Then run from `backend/` becaus
 uv run python run.py --reload
 ```
 
-The backend is local-only in this phase: it binds to `127.0.0.1` by default
-and rejects all non-loopback `HOST` values. Remote access and private
-authenticated infrastructure are deferred to a separate task.
+The backend's local-only boundary and deferred remote access are documented in
+the [README](README.md#backend-setup).
 
 Useful endpoints:
 
@@ -363,8 +362,8 @@ npm install
 EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npm start
 ```
 
-Physical-device backend access is deferred until private authenticated
-infrastructure is implemented.
+See the [README](README.md#backend-setup) for the backend's physical-device
+access boundary.
 
 Run mobile tests:
 

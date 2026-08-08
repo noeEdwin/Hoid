@@ -698,7 +698,7 @@ Starts a new roleplay session. Pulls high-difficulty tokens, selects scenario co
 ```json
 {
   "session_id": "987fcdeb-51a2-43d7-9012-345678901234",
-  "websocket_url": "ws://192.168.3.11:8000/api/roleplay/stream/987fcdeb-51a2-43d7-9012-345678901234",
+  "websocket_url": "ws://127.0.0.1:8000/api/roleplay/stream/987fcdeb-51a2-43d7-9012-345678901234",
   "scenario": {
     "id": "444e4567-e89b-12d3-a456-426614174000",
     "title": "在咖啡店",
